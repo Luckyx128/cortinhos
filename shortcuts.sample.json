@@ -1,0 +1,26 @@
+[
+  {
+    "Name": "Discord",
+    "Type": "Application",
+    "Path": "C:\\Users\\%USERNAME%\\AppData\\Local\\Discord\\Update.exe",
+    "Arguments": "--processStart Discord.exe"
+  },
+  {
+    "Name": "Steam",
+    "Type": "Application",
+    "Path": "C:\\Program Files (x86)\\Steam\\steam.exe",
+    "Arguments": ""
+  },
+  {
+    "Name": "Pasta de Screenshots",
+    "Type": "Folder",
+    "Path": "C:\\Users\\%USERNAME%\\Pictures\\Screenshots",
+    "Arguments": ""
+  },
+  {
+    "Name": "GitHub Ambiensys",
+    "Type": "Url",
+    "Path": "https://github.com/orgs/ambiensys/repositories",
+    "Arguments": ""
+  }
+]
