@@ -14,14 +14,20 @@
         SizeToContent="Manual"
         Title="Notch" Height="48" Width="92">
     <Border x:Name="NotchRoot"
-            CornerRadius="0,0,8,8"
-            Background="#C7202020"
-            BorderBrush="#14FFFFFF"
-            BorderThickness="1,0,1,1"
-            MouseEnter="NotchRoot_MouseEnter"
-            MouseLeave="NotchRoot_MouseLeave">
+        CornerRadius="0,0,8,8"
+        Background="#C7202020"
+        BorderBrush="#14FFFFFF"
+        BorderThickness="1,0,1,1"
+        RenderTransformOrigin="0.5,0.5"
+        MouseEnter="NotchRoot_MouseEnter"
+        MouseLeave="NotchRoot_MouseLeave"
+        PreviewMouseLeftButtonDown="NotchRoot_PreviewMouseLeftButtonDown">
+        <Border.RenderTransform>
+            <ScaleTransform x:Name="NotchScale" ScaleX="1" ScaleY="1"/>
+        </Border.RenderTransform>
         <Border.Effect>
             <DropShadowEffect 
+                x:Name="NotchShadow"
                 BlurRadius="16" 
                 ShadowDepth="2" 
                 Opacity="0.34"

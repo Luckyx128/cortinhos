@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Media.Animation;
+using System.Linq;
 
 namespace Cortinho
 {
@@ -31,6 +32,9 @@ namespace Cortinho
 
         private const double CompactWidth = 92;
         private const double PeekWidth = 232;
+
+        private enum NotchAnchor { Left, Center, Right }
+        private NotchAnchor _anchor = NotchAnchor.Center;
 
 
         [DllImport("user32.dll")]
@@ -107,7 +111,7 @@ namespace Cortinho
 
         private void AnimateWidth(double targetWidth)
         {
-            double targetLeft = SystemParameters.WorkArea.Left + (SystemParameters.WorkArea.Width - targetWidth) / 2;
+            double targetLeft = GetLeftForAnchor(_anchor, targetWidth);
 
             if (!SystemParameters.ClientAreaAnimation)
             {
@@ -121,6 +125,67 @@ namespace Cortinho
 
             BeginAnimation(WidthProperty, new DoubleAnimation(targetWidth, duration) { EasingFunction = ease });
             BeginAnimation(LeftProperty, new DoubleAnimation(targetLeft, duration) { EasingFunction = ease });
+        }
+
+        private void NotchRoot_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            MicCaption.Visibility = Visibility.Collapsed;
+            Width = CompactWidth;
+
+            Cursor = System.Windows.Input.Cursors.SizeAll;
+            NotchScale.ScaleX = 1.03;
+            NotchScale.ScaleY = 1.03;
+            NotchShadow.BlurRadius = 40;
+            NotchShadow.ShadowDepth = 14;
+            NotchShadow.Opacity = 0.5;
+
+            BeginAnimation(LeftProperty, null);
+            BeginAnimation(TopProperty, null);
+
+            DragMove();
+
+            Cursor = System.Windows.Input.Cursors.Arrow;
+            NotchScale.ScaleX = 1;
+            NotchScale.ScaleY = 1;
+            NotchShadow.BlurRadius = 16;
+            NotchShadow.ShadowDepth = 2;
+            NotchShadow.Opacity = 0.34;
+
+            SnapToNearestAnchor();
+        }
+
+
+
+
+        private void SnapToNearestAnchor()
+        {
+            var workArea = SystemParameters.WorkArea;
+            var candidates = new (NotchAnchor Anchor, double Left)[]
+            {
+        (NotchAnchor.Left, workArea.Left + 12),
+        (NotchAnchor.Center, workArea.Left + (workArea.Width - CompactWidth) / 2),
+        (NotchAnchor.Right, workArea.Right - CompactWidth - 12),
+            };
+
+            var closest = candidates.OrderBy(c => Math.Abs(c.Left - Left)).First();
+            _anchor = closest.Anchor;
+
+            var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
+            var duration = new Duration(TimeSpan.FromMilliseconds(220));
+
+            BeginAnimation(LeftProperty, new DoubleAnimation(closest.Left, duration) { EasingFunction = ease });
+            BeginAnimation(TopProperty, new DoubleAnimation(workArea.Top, duration) { EasingFunction = ease });
+        }
+
+        private double GetLeftForAnchor(NotchAnchor anchor, double width)
+        {
+            var workArea = SystemParameters.WorkArea;
+            return anchor switch
+            {
+                NotchAnchor.Left => workArea.Left + 12,
+                NotchAnchor.Right => workArea.Right - width - 12,
+                _ => workArea.Left + (workArea.Width - width) / 2,
+            };
         }
     }
 }
