@@ -12,9 +12,9 @@
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         SizeToContent="Manual"
-        Title="Notch" Height="48" Width="92">
+        Title="Notch" Height="36" Width="92">
     <Border x:Name="NotchRoot"
-        CornerRadius="0,0,8,8"
+        CornerRadius="0,0,6,6"
         Background="#C7202020"
         BorderBrush="#14FFFFFF"
         BorderThickness="1,0,1,1"
@@ -33,11 +33,13 @@
                 Opacity="0.34"
                 Color="Black"/>
         </Border.Effect>
-
-        <StackPanel Orientation="Horizontal"
+        <Grid>
+            <StackPanel  
+            x:Name="CompactContent"
+            Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
-            <Border MinWidth="40" Height="40" CornerRadius="4" Padding="9,0">
+            <Border MinWidth="30" Height="30" CornerRadius="4" Padding="7,0">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Background" Value="Transparent"/>
@@ -51,7 +53,7 @@
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
 
-                        <Viewbox Width="22" Height="22">
+                        <Viewbox Width="18" Height="18">
                             <Grid Width="24" Height="24">
                                 <Canvas x:Name="MicOnIcon" Width="24" Height="24">
                                     <Path Data="M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z"
@@ -76,14 +78,26 @@
                    Visibility="Collapsed"/>
                     </StackPanel>
                     <Border x:Name="MicUnderline"
-                            Width="24" Height="3" CornerRadius="2"
+                            Width="12" Height="3" CornerRadius="2"
                             Background="#FFF0503C"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Bottom"
-                            Margin="0,0,0,2"
+                            Margin="3,0,0,2"
                             Visibility="Collapsed"/>
                 </Grid>
             </Border>
         </StackPanel>
+            <StackPanel x:Name="ExpandedContent" Visibility="Collapsed" Margin="12" VerticalAlignment="Top">
+                <Button x:Name="MicToggleButton"
+                        Content="Mutar mic"
+                        Height="36"
+                        Click="MicToggleButton_Click"
+                        Background="#FF232A33"
+                        Foreground="#FFECEEF2"
+                        BorderBrush="#14FFFFFF"
+                        BorderThickness="1"
+                        Cursor="Hand"/>
+            </StackPanel>
+        </Grid>
     </Border>
 </Window>

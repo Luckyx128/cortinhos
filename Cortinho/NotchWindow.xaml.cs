@@ -13,6 +13,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Media.Animation;
 using System.Linq;
+using System.Windows.Threading;
 
 namespace Cortinho
 {
@@ -35,6 +36,12 @@ namespace Cortinho
 
         private enum NotchAnchor { Left, Center, Right }
         private NotchAnchor _anchor = NotchAnchor.Center;
+        private bool _isTransitioning;
+
+        private const double CompactHeight = 36;
+        private const double ExpandedWidth = 400;
+        private const double ExpandedHeight = 357;
+        private bool _isExpanded;
 
 
         [DllImport("user32.dll")]
@@ -76,6 +83,7 @@ namespace Cortinho
         private void UpdateMicIcon()
         {
             bool isMuted = _micService.IsMuted;
+            MicToggleButton.Content = isMuted ? "Ativar mic" : "Mutar mic";
             MicOnIcon.Visibility = isMuted ? Visibility.Collapsed :
                 Visibility.Visible;
             MicOffIcon.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
@@ -99,12 +107,14 @@ namespace Cortinho
 
         private void NotchRoot_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_isExpanded || _isTransitioning) return;
             MicCaption.Visibility = Visibility.Visible;
             AnimateWidth(PeekWidth);
         }
 
         private void NotchRoot_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_isExpanded || _isTransitioning) return;
             MicCaption.Visibility = Visibility.Collapsed;
             AnimateWidth(CompactWidth);
         }
@@ -129,8 +139,14 @@ namespace Cortinho
 
         private void NotchRoot_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (e.OriginalSource is DependencyObject source && MicToggleButton.IsAncestorOf(source))
+                return;
+            if (_isTransitioning) return;
+            double startLeft = Left;
+            double startTop = Top;
+
             MicCaption.Visibility = Visibility.Collapsed;
-            Width = CompactWidth;
+            if (!_isExpanded) Width = CompactWidth;
 
             Cursor = System.Windows.Input.Cursors.SizeAll;
             NotchScale.ScaleX = 1.03;
@@ -151,10 +167,71 @@ namespace Cortinho
             NotchShadow.ShadowDepth = 2;
             NotchShadow.Opacity = 0.34;
 
-            SnapToNearestAnchor();
+            bool wasDrag = Math.Abs(Left - startLeft) > 2 || Math.Abs(Top - startTop) > 2;
+
+            if (wasDrag)
+                SnapToNearestAnchor();
+            else
+                ToggleExpanded();
         }
 
+        private void ToggleExpanded()
+        {
+            _isExpanded = !_isExpanded;
+            _isTransitioning = true;
 
+            double targetWidth = _isExpanded ? ExpandedWidth : CompactWidth;
+            double targetHeight = _isExpanded ? ExpandedHeight : CompactHeight;
+            double targetLeft = GetLeftForAnchor(_anchor, targetWidth);
+
+            CompactContent.Visibility = _isExpanded ? Visibility.Collapsed : Visibility.Visible;
+            ExpandedContent.Visibility = _isExpanded ? Visibility.Visible : Visibility.Collapsed;
+
+            AnimateSize(targetWidth, targetHeight, targetLeft, heightFirst: !_isExpanded);
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(360) };
+            timer.Tick += (_, _) =>
+            {
+                _isTransitioning = false;
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private void AnimateSize(double targetWidth, double targetHeight, double targetLeft, bool heightFirst)
+        {
+            if (!SystemParameters.ClientAreaAnimation)
+            {
+                Width = targetWidth;
+                Height = targetHeight;
+                Left = targetLeft;
+                return;
+            }
+
+            BeginAnimation(WidthProperty, null);
+            BeginAnimation(HeightProperty, null);
+
+            var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
+            var duration = new Duration(TimeSpan.FromMilliseconds(220));
+            var delay = TimeSpan.FromMilliseconds(120);
+
+            var widthAnim = new DoubleAnimation(targetWidth, duration) { EasingFunction = ease };
+            var heightAnim = new DoubleAnimation(targetHeight, duration) { EasingFunction = ease };
+            var leftAnim = new DoubleAnimation(targetLeft, duration) { EasingFunction = ease };
+
+            if (heightFirst) widthAnim.BeginTime = delay;
+            else heightAnim.BeginTime = delay;
+
+            BeginAnimation(WidthProperty, widthAnim);
+            BeginAnimation(HeightProperty, heightAnim);
+            BeginAnimation(LeftProperty, leftAnim);
+        }
+
+        private void MicToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            _micService.ToggleMute();
+            UpdateMicIcon();
+        }
 
 
         private void SnapToNearestAnchor()
