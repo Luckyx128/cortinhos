@@ -187,9 +187,9 @@ namespace Cortinho
             CompactContent.Visibility = _isExpanded ? Visibility.Collapsed : Visibility.Visible;
             ExpandedContent.Visibility = _isExpanded ? Visibility.Visible : Visibility.Collapsed;
 
-            AnimateSize(targetWidth, targetHeight, targetLeft, heightFirst: !_isExpanded);
+            AnimateSize(targetWidth, targetHeight, targetLeft);
 
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(360) };
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
             timer.Tick += (_, _) =>
             {
                 _isTransitioning = false;
@@ -198,7 +198,7 @@ namespace Cortinho
             timer.Start();
         }
 
-        private void AnimateSize(double targetWidth, double targetHeight, double targetLeft, bool heightFirst)
+        private void AnimateSize(double targetWidth, double targetHeight, double targetLeft)
         {
             if (!SystemParameters.ClientAreaAnimation)
             {
@@ -211,20 +211,12 @@ namespace Cortinho
             BeginAnimation(WidthProperty, null);
             BeginAnimation(HeightProperty, null);
 
-            var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
             var duration = new Duration(TimeSpan.FromMilliseconds(220));
-            var delay = TimeSpan.FromMilliseconds(120);
 
-            var widthAnim = new DoubleAnimation(targetWidth, duration) { EasingFunction = ease };
-            var heightAnim = new DoubleAnimation(targetHeight, duration) { EasingFunction = ease };
-            var leftAnim = new DoubleAnimation(targetLeft, duration) { EasingFunction = ease };
-
-            if (heightFirst) widthAnim.BeginTime = delay;
-            else heightAnim.BeginTime = delay;
-
-            BeginAnimation(WidthProperty, widthAnim);
-            BeginAnimation(HeightProperty, heightAnim);
-            BeginAnimation(LeftProperty, leftAnim);
+            BeginAnimation(WidthProperty, new DoubleAnimation(targetWidth, duration) { EasingFunction = ease });
+            BeginAnimation(HeightProperty, new DoubleAnimation(targetHeight, duration) { EasingFunction = ease });
+            BeginAnimation(LeftProperty, new DoubleAnimation(targetLeft, duration) { EasingFunction = ease });
         }
 
         private void MicToggleButton_Click(object sender, RoutedEventArgs e)
