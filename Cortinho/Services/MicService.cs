@@ -15,7 +15,7 @@ namespace Cortinho.Services
             try
             {
                 var enumerator = new MMDeviceEnumerator();
-                _device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications);
+                _device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
             }
             catch
             {

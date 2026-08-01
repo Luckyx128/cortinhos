@@ -1,4 +1,5 @@
-﻿using Cortinho.Services;
+﻿using Cortinho.Native;
+using Cortinho.Services;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -20,16 +21,10 @@ namespace Cortinho
     public partial class NotchWindow : Window
     {
         private readonly MicService _micService = new();
+        private GlobalInputWatcher? _inputWatcher;
         private HwndSource? _hwndSource;
-        private const int GW_EXSTYLE = -20;
-        private const int WS_EX_NOACTIVATE = 0x08000000;
-        private const int WS_EX_TOOLWINDOW = 0x00000080;
-
-        private const int WM_HOTKEY = 0x0312;
+        private DispatcherTimer? _autoCollapseTimer;
         private const int HOTKEY_ID_MUTE = 9000;
-        private const uint MOD_CONTROL = 0x0002;
-        private const uint MOD_ALT = 0x0001;
-        private const uint VK_M = 0x4D;
 
         private const double CompactWidth = 92;
         private const double PeekWidth = 232;
@@ -44,15 +39,6 @@ namespace Cortinho
         private bool _isExpanded;
 
 
-        [DllImport("user32.dll")]
-        private static extern int GetWindowLong(IntPtr hwnd, int index);
-        [DllImport("user32.dll")]
-        private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         public NotchWindow()
         {
             InitializeComponent();
@@ -63,10 +49,11 @@ namespace Cortinho
         }
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID_MUTE)
+            if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID_MUTE)
             {
                 _micService.ToggleMute();
                 UpdateMicIcon();
+                PlayMicSound(_micService.IsMuted);
                 handled = true;
             }
             return IntPtr.Zero;
@@ -75,20 +62,37 @@ namespace Cortinho
         protected override void OnClosed(EventArgs e)
         {
             var hwnd = new WindowInteropHelper(this).Handle;
-            UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
+            NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
             _hwndSource?.RemoveHook(WndProc);
+            _inputWatcher?.Dispose();
             base.OnClosed(e);
         }
 
         private void UpdateMicIcon()
         {
             bool isMuted = _micService.IsMuted;
-            MicToggleButton.Content = isMuted ? "Ativar mic" : "Mutar mic";
-            MicOnIcon.Visibility = isMuted ? Visibility.Collapsed :
-                Visibility.Visible;
+
+            MicOnIcon.Visibility = isMuted ? Visibility.Collapsed : Visibility.Visible;
             MicOffIcon.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
             MicCaption.Text = isMuted ? "Mic mutado" : "Mic ativo";
             MicUnderline.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
+
+            MicToggleOnIcon.Visibility = isMuted ? Visibility.Collapsed : Visibility.Visible;
+            MicToggleOffIcon.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
+            MicToggleLabel.Text = isMuted ? "Ativar mic" : "Mutar mic";
+            MicToggleLabel.Foreground = new SolidColorBrush(isMuted
+                ? System.Windows.Media.Color.FromRgb(0xF0, 0x50, 0x3C)
+                : System.Windows.Media.Color.FromRgb(0xEC, 0xEE, 0xF2));
+            MicToggleState.Text = isMuted ? "OFF" : "ON";
+        }
+
+        private void PlayMicSound(bool isMuted)
+        {
+            if (isMuted)
+                System.Media.SystemSounds.Hand.Play();
+            else
+                System.Media.SystemSounds.Asterisk.Play();
+
         }
 
 
@@ -97,12 +101,30 @@ namespace Cortinho
             base.OnSourceInitialized(e);
 
             var hwnd = new WindowInteropHelper(this).Handle;
-            int currentStyle = GetWindowLong(hwnd, GW_EXSTYLE);
-            SetWindowLong(hwnd, GW_EXSTYLE, currentStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+            int currentStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, currentStyle | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW);
             _hwndSource = HwndSource.FromHwnd(hwnd);
             _hwndSource?.AddHook(WndProc);
 
-            RegisterHotKey(hwnd, HOTKEY_ID_MUTE, MOD_CONTROL | MOD_ALT, VK_M);
+            NativeMethods.RegisterHotKey(hwnd, HOTKEY_ID_MUTE, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, NativeMethods.VK_M);
+
+            _inputWatcher = new GlobalInputWatcher();
+            _inputWatcher.MouseDown += OnGlobalMouseDown;
+            _inputWatcher.EscapePressed += OnGlobalEscapePressed;
+        }
+
+        private void OnGlobalMouseDown(System.Windows.Point screenPoint)
+        {
+            if (!_isExpanded || _isTransitioning) return;
+            var windowBounds = new Rect(Left, Top, Width, Height);
+            if (!windowBounds.Contains(screenPoint))
+                ToggleExpanded();
+        }
+
+        private void OnGlobalEscapePressed()
+        {
+            if (_isExpanded && !_isTransitioning)
+                ToggleExpanded();
         }
 
         private void NotchRoot_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -189,6 +211,11 @@ namespace Cortinho
 
             AnimateSize(targetWidth, targetHeight, targetLeft);
 
+            if (_isExpanded)
+                ResetAutoCollapseTimer();
+            else
+                _autoCollapseTimer?.Stop();
+
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
             timer.Tick += (_, _) =>
             {
@@ -219,10 +246,11 @@ namespace Cortinho
             BeginAnimation(LeftProperty, new DoubleAnimation(targetLeft, duration) { EasingFunction = ease });
         }
 
-        private void MicToggleButton_Click(object sender, RoutedEventArgs e)
+        private void MicToggleButton_Click(object sender, MouseButtonEventArgs e)
         {
             _micService.ToggleMute();
             UpdateMicIcon();
+            PlayMicSound(_micService.IsMuted);
         }
 
 
@@ -255,6 +283,27 @@ namespace Cortinho
                 NotchAnchor.Right => workArea.Right - width - 12,
                 _ => workArea.Left + (workArea.Width - width) / 2,
             };
+        }
+
+        private void ResetAutoCollapseTimer()
+        {
+            if (_autoCollapseTimer == null)
+            {
+                _autoCollapseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.2) };
+                _autoCollapseTimer.Tick += (_, _) =>
+                {
+                    _autoCollapseTimer!.Stop();
+                    if (_isExpanded && !_isTransitioning)
+                        ToggleExpanded();
+                };
+            }
+            _autoCollapseTimer.Stop();
+            _autoCollapseTimer.Start();
+        }
+
+        private void NotchRoot_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_isExpanded) ResetAutoCollapseTimer();
         }
     }
 }
