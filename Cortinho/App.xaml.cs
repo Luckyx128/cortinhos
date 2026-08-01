@@ -14,9 +14,16 @@ namespace Cortinho
     {
         private NotifyIcon? _trayIcon;
 
+        // Derivados do AppxManifest.xml (Package\AppxManifest.xml) — só mudam se Identity/Publisher ou o Application Id mudarem lá
+        private const string PackageFamilyName = "Cortinho.Notch_7s34dc27ge8hm";
+        private const string PackageAppId = "CortinhoNotch";
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            if (!EnsurePackageIdentity())
+                return; // relançou como processo com identidade e está saindo — não cria UI nesse processo
 
             var menu = new ContextMenuStrip();
             menu.Items.Add("Sair", null, (_, _) => Shutdown());
@@ -74,6 +81,53 @@ namespace Cortinho
         {
             _trayIcon?.Dispose();
             base.OnExit(e);
+        }
+
+        /// <returns>true se este processo já tem (ou passou a ter) identidade de pacote e deve seguir com a UI normal; false se relançou e este processo deve encerrar.</returns>
+        private static bool EnsurePackageIdentity()
+        {
+            if (HasPackageIdentity())
+                return true;
+
+            try
+            {
+                var msixPath = Path.Combine(AppContext.BaseDirectory, "CortinhoSparse.msix");
+                var packageManager = new global::Windows.Management.Deployment.PackageManager();
+                var options = new global::Windows.Management.Deployment.AddPackageOptions
+                {
+                    ExternalLocationUri = new Uri(AppContext.BaseDirectory),
+                    ForceUpdateFromAnyVersion = true
+                };
+
+                var result = packageManager.AddPackageByUriAsync(new Uri(msixPath), options)
+                    .AsTask().GetAwaiter().GetResult();
+
+                if (result.ExtendedErrorCode != null)
+                    throw result.ExtendedErrorCode;
+            }
+            catch
+            {
+                // Sem identidade mesmo (certificado não confiável, .msix ausente, etc) — segue sem ela.
+                // Módulos que dependem de identidade de pacote (ex: Notificações) devem se esconder sozinhos nesse caso.
+                return true;
+            }
+
+            System.Diagnostics.Process.Start("explorer.exe", $"shell:appsFolder\\{PackageFamilyName}!{PackageAppId}");
+            Environment.Exit(0);
+            return false;
+        }
+
+        private static bool HasPackageIdentity()
+        {
+            try
+            {
+                _ = global::Windows.ApplicationModel.Package.Current;
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
     }
 

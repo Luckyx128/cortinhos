@@ -15,12 +15,16 @@ using System.Windows.Shapes;
 using System.Windows.Media.Animation;
 using System.Linq;
 using System.Windows.Threading;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace Cortinho
 {
     public partial class NotchWindow : Window
     {
         private readonly MicService _micService = new();
+        private readonly NotificationService _notificationService = new();
         private GlobalInputWatcher? _inputWatcher;
         private HwndSource? _hwndSource;
         private DispatcherTimer? _autoCollapseTimer;
@@ -46,6 +50,78 @@ namespace Cortinho
             Left = (SystemParameters.WorkArea.Width - Width) / 2;
 
             UpdateMicIcon();
+            _ = InitializeNotificationsAsync();
+        }
+
+        private sealed class NotificationDisplayItem
+        {
+            public string Title { get; init; } = "";
+            public string Body { get; init; } = "";
+            public string TimeLabel { get; init; } = "";
+            public BitmapImage? Icon { get; init; }
+        }
+
+        private async Task InitializeNotificationsAsync()
+        {
+            bool available = await _notificationService.InitializeAsync();
+            if (!available) return;
+
+            _notificationService.NotificationsChanged += (_, _) =>
+                Dispatcher.Invoke(() => _ = RefreshNotificationsAsync());
+
+            NotificationsPanel.Visibility = Visibility.Visible;
+            await RefreshNotificationsAsync();
+        }
+
+        private async Task RefreshNotificationsAsync()
+        {
+            var items = await _notificationService.GetNotificationsAsync();
+
+            var displayItems = new List<NotificationDisplayItem>();
+            foreach (var item in items.Take(3))
+            {
+                displayItems.Add(new NotificationDisplayItem
+                {
+                    Title = item.Title,
+                    Body = item.Body,
+                    TimeLabel = item.Time.ToLocalTime().ToString("HH:mm"),
+                    Icon = item.LogoRef != null ? await LoadIconAsync(item.LogoRef) : null
+                });
+            }
+
+            NotificationsItems.ItemsSource = displayItems;
+            NoNotificationsLabel.Visibility = displayItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private static async Task<BitmapImage?> LoadIconAsync(global::Windows.Storage.Streams.RandomAccessStreamReference streamRef)
+        {
+            try
+            {
+                using var stream = await streamRef.OpenReadAsync();
+                var reader = new global::Windows.Storage.Streams.DataReader(stream);
+                await reader.LoadAsync((uint)stream.Size);
+                var bytes = new byte[stream.Size];
+                reader.ReadBytes(bytes);
+
+                using var ms = new System.IO.MemoryStream(bytes);
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = ms;
+                bitmap.EndInit();
+                bitmap.Freeze();
+                return bitmap;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void ClearNotifications_Click(object sender, MouseButtonEventArgs e)
+        {
+            _notificationService.ClearAll();
+            _ = RefreshNotificationsAsync();
         }
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {

@@ -15,7 +15,7 @@
         Title="Notch" Height="36" Width="92">
     <Border x:Name="NotchRoot"
         CornerRadius="0,0,6,6"
-        Background="#C7202020"
+        Background="#FF202020"
         BorderBrush="#14FFFFFF"
         BorderThickness="1,0,1,1"
         RenderTransformOrigin="0.5,0.5"
@@ -88,7 +88,13 @@
                 </Grid>
             </Border>
         </StackPanel>
-            <StackPanel x:Name="ExpandedContent" Visibility="Collapsed" Margin="12" VerticalAlignment="Top">
+            <Grid x:Name="ExpandedContent" Visibility="Collapsed" Margin="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,6,0" VerticalAlignment="Top">
                 <Border x:Name="MicToggleButton"
         Height="36"
         CornerRadius="4"
@@ -97,7 +103,7 @@
         MouseLeftButtonDown="MicToggleButton_Click">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="#C7202020"/>
+                            <Setter Property="Background" Value="#FF202020"/>
                             <Setter Property="BorderBrush" Value="#14FFFFFF"/>
                             <Setter Property="BorderThickness" Value="1"/>
                             <Style.Triggers>
@@ -136,7 +142,53 @@
                    VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
-            </StackPanel>
+                </StackPanel>
+
+                <StackPanel x:Name="NotificationsPanel" Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Top" Visibility="Collapsed">
+                    <Grid Margin="0,0,0,8">
+                        <TextBlock Text="NOTIFICAÇÕES" FontFamily="Consolas" FontSize="9.5" Foreground="#FF9AA3AD" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ClearNotificationsLink" Text="Limpar" FontSize="10.5" Foreground="#FF6EA8FE"
+                                   HorizontalAlignment="Right" Cursor="Hand" MouseLeftButtonDown="ClearNotifications_Click"/>
+                    </Grid>
+
+                    <ItemsControl x:Name="NotificationsItems">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Width="15" Height="15" CornerRadius="3"
+                                            Background="#33FFFFFF" Margin="0,1,8,0" VerticalAlignment="Top">
+                                        <Image Source="{Binding Icon}" Width="11" Height="11"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Title}"
+                                                       FontSize="11" FontWeight="SemiBold" Foreground="#FFECEEF2"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TimeLabel}"
+                                                       FontFamily="Consolas" FontSize="9.5" Foreground="#FF9AA3AD"
+                                                       Margin="6,0,0,0"/>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Body}" FontSize="11" Foreground="#FF9AA3AD"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock x:Name="NoNotificationsLabel" Text="Sem notificações" FontSize="11" Foreground="#FF9AA3AD" Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Border>
 </Window>
