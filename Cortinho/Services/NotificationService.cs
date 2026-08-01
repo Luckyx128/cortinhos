@@ -56,7 +56,7 @@ namespace Cortinho.Services
                 string body = texts is { Count: > 1 } ? texts[1].Text : "";
 
                 global::Windows.Storage.Streams.RandomAccessStreamReference? logoRef = null;
-                try { logoRef = n.AppInfo.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(16, 16)); }
+                try { logoRef = n.AppInfo.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(32, 32)); }
                 catch { /* alguns apps não expõem logo — item fica sem ícone */ }
 
                 items.Add(new NotificationItem(n.Id, title, body, n.CreationTime, logoRef));

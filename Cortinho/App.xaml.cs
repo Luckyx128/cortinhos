@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
@@ -89,32 +90,53 @@ namespace Cortinho
             if (HasPackageIdentity())
                 return true;
 
-            try
-            {
-                var msixPath = Path.Combine(AppContext.BaseDirectory, "CortinhoSparse.msix");
-                var packageManager = new global::Windows.Management.Deployment.PackageManager();
-                var options = new global::Windows.Management.Deployment.AddPackageOptions
-                {
-                    ExternalLocationUri = new Uri(AppContext.BaseDirectory),
-                    ForceUpdateFromAnyVersion = true
-                };
-
-                var result = packageManager.AddPackageByUriAsync(new Uri(msixPath), options)
-                    .AsTask().GetAwaiter().GetResult();
-
-                if (result.ExtendedErrorCode != null)
-                    throw result.ExtendedErrorCode;
-            }
-            catch
-            {
-                // Sem identidade mesmo (certificado não confiável, .msix ausente, etc) — segue sem ela.
-                // Módulos que dependem de identidade de pacote (ex: Notificações) devem se esconder sozinhos nesse caso.
-                return true;
-            }
+            if (!TryRegisterPackage())
+                return true; // sem identidade mesmo — segue, módulos que dependem dela (ex: Notificações) devem se esconder sozinhos
 
             System.Diagnostics.Process.Start("explorer.exe", $"shell:appsFolder\\{PackageFamilyName}!{PackageAppId}");
             Environment.Exit(0);
             return false;
+        }
+
+        private static bool TryRegisterPackage()
+        {
+            var packageManager = new global::Windows.Management.Deployment.PackageManager();
+            var msixUri = new Uri(Path.Combine(AppContext.BaseDirectory, "CortinhoSparse.msix"));
+            var options = new global::Windows.Management.Deployment.AddPackageOptions
+            {
+                ExternalLocationUri = new Uri(AppContext.BaseDirectory),
+                ForceUpdateFromAnyVersion = true
+            };
+
+            try
+            {
+                var result = packageManager.AddPackageByUriAsync(msixUri, options).AsTask().GetAwaiter().GetResult();
+                if (result.ExtendedErrorCode != null) throw result.ExtendedErrorCode;
+                return true;
+            }
+            catch (Exception ex) when ((uint)ex.HResult == 0x80073D0B)
+            {
+                // Pacote já registrado apontando pra outra pasta externa (ex: alternando entre build Debug e Release)
+                // — remove o registro antigo e registra de novo apontando pra pasta atual.
+                try
+                {
+                    var existing = packageManager.FindPackagesForUser(string.Empty, PackageFamilyName).FirstOrDefault();
+                    if (existing == null) return false;
+
+                    packageManager.RemovePackageAsync(existing.Id.FullName).AsTask().GetAwaiter().GetResult();
+
+                    var retry = packageManager.AddPackageByUriAsync(msixUri, options).AsTask().GetAwaiter().GetResult();
+                    return retry.ExtendedErrorCode == null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool HasPackageIdentity()

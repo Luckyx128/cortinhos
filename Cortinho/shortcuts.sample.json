@@ -1,0 +1,23 @@
+[
+  {
+    "Name": "Bloco de notas",
+    "Type": "Application",
+    "Path": "notepad.exe",
+    "Arguments": "",
+    "Pinned": true
+  },
+  {
+    "Name": "Documentos",
+    "Type": "Folder",
+    "Path": "%USERPROFILE%\\Documents",
+    "Arguments": "",
+    "Pinned": true
+  },
+  {
+    "Name": "GitHub",
+    "Type": "Url",
+    "Path": "https://github.com",
+    "Arguments": "",
+    "Pinned": true
+  }
+]

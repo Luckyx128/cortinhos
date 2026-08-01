@@ -1,4 +1,5 @@
-﻿using Cortinho.Native;
+﻿using Cortinho.Models;
+using Cortinho.Native;
 using Cortinho.Services;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -25,9 +26,14 @@ namespace Cortinho
     {
         private readonly MicService _micService = new();
         private readonly NotificationService _notificationService = new();
+        private readonly PerfService _perfService = new();
+        private readonly DiscordPresenceService _discordPresenceService = new();
+        private GamePresenceWatcher? _discordWatcher;
+        private DiscordSettings _discordSettings = new();
         private GlobalInputWatcher? _inputWatcher;
         private HwndSource? _hwndSource;
         private DispatcherTimer? _autoCollapseTimer;
+        private DispatcherTimer? _perfTimer;
         private const int HOTKEY_ID_MUTE = 9000;
 
         private const double CompactWidth = 92;
@@ -51,6 +57,159 @@ namespace Cortinho
 
             UpdateMicIcon();
             _ = InitializeNotificationsAsync();
+            InitializePerf();
+            InitializeShortcuts();
+            InitializeDiscord();
+        }
+
+        private void InitializeDiscord()
+        {
+            _discordSettings = DiscordSettingsStore.Load();
+            if (string.IsNullOrWhiteSpace(_discordSettings.ClientId))
+                return; // sem Client ID configurado — sem provider, módulo fica oculto
+
+            DiscordPanel.Visibility = Visibility.Visible;
+            SetDiscordToggleVisual(_discordSettings.Enabled);
+
+            if (_discordSettings.Enabled)
+                StartDiscordWatcher();
+            else
+                DiscordValueText.Text = "Desativado";
+        }
+
+        private void StartDiscordWatcher()
+        {
+            if (!_discordPresenceService.IsInitialized)
+                _discordPresenceService.Initialize(_discordSettings.ClientId);
+
+            if (_discordWatcher == null)
+            {
+                _discordWatcher = new GamePresenceWatcher(_discordPresenceService, () => ShortcutStore.Load());
+                _discordWatcher.ActiveAppChanged += appName =>
+                    Dispatcher.Invoke(() => DiscordValueText.Text = appName ?? "Nada rodando");
+            }
+
+            _discordWatcher.Start();
+            DiscordValueText.Text = "Nada rodando";
+        }
+
+        private void StopDiscordWatcher()
+        {
+            _discordWatcher?.Stop();
+            _discordPresenceService.ClearPresence();
+            DiscordValueText.Text = "Desativado";
+        }
+
+        private void DiscordToggle_Click(object sender, MouseButtonEventArgs e)
+        {
+            _discordSettings.Enabled = !_discordSettings.Enabled;
+            DiscordSettingsStore.Save(_discordSettings);
+            SetDiscordToggleVisual(_discordSettings.Enabled);
+
+            if (_discordSettings.Enabled)
+                StartDiscordWatcher();
+            else
+                StopDiscordWatcher();
+        }
+
+        private void SetDiscordToggleVisual(bool on)
+        {
+            DiscordToggleTrack.Background = new SolidColorBrush(on
+                ? System.Windows.Media.Color.FromRgb(0x6E, 0xA8, 0xFE)
+                : System.Windows.Media.Color.FromRgb(0x3A, 0x3A, 0x3A));
+            DiscordToggleKnob.HorizontalAlignment = on ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+            DiscordToggleKnob.Margin = on ? new Thickness(0, 0, 2, 0) : new Thickness(2, 0, 0, 0);
+        }
+
+        private sealed class ShortcutDisplayItem
+        {
+            public string Name { get; init; } = "";
+            public string IconGeometry { get; init; } = "";
+            public ShortcutItem Source { get; init; } = null!;
+        }
+
+        private void InitializeShortcuts()
+        {
+            var pinned = ShortcutStore.Load().Where(s => s.Pinned).Take(5).ToList();
+            if (pinned.Count == 0)
+                return; // sem atalhos fixados — módulo fica oculto
+
+            ShortcutsPanel.Visibility = Visibility.Visible;
+            ShortcutsItems.ItemsSource = pinned.Select(s => new ShortcutDisplayItem
+            {
+                Name = s.Name,
+                IconGeometry = GetShortcutIconGeometry(s.Type),
+                Source = s
+            }).ToList();
+        }
+
+        private static string GetShortcutIconGeometry(ShortcutType type) => type switch
+        {
+            ShortcutType.Application => "M4 5h16v14H4Z M4 9h16",
+            ShortcutType.Folder => "M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6l2 2H18.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5Z",
+            ShortcutType.Url => "M9 15l6-6 M8.5 8.5l-1.8 1.8a3 3 0 0 0 4.2 4.2l1-1 M15.5 15.5l1.8-1.8a3 3 0 0 0-4.2-4.2l-1 1",
+            ShortcutType.Command => "M4 5h16v14H4Z M7.5 9.5l3 2.5-3 2.5 M13 15h4",
+            _ => "M4 5h16v14H4Z"
+        };
+
+        private void ShortcutButton_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (((FrameworkElement)sender).DataContext is ShortcutDisplayItem item)
+                ShortcutLauncherService.Launch(item.Source);
+        }
+
+        private void InitializePerf()
+        {
+            if (!_perfService.IsAvailable)
+                return; // sem provider de CPU — esconde o módulo inteiro, igual ao spec pede
+
+            PerfPanel.Visibility = Visibility.Visible;
+
+            _perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            _perfTimer.Tick += (_, _) => _ = UpdatePerfAsync();
+            _perfTimer.Start();
+        }
+
+        private bool _perfUpdateInProgress;
+
+        private async Task UpdatePerfAsync()
+        {
+            if (_perfUpdateInProgress) return; // tick anterior ainda rodando — pula essa rodada em vez de sobrepor
+            _perfUpdateInProgress = true;
+            try
+            {
+                // Enumerar/criar PerformanceCounter (principalmente os de GPU) pode levar dezenas de ms —
+                // rodar isso na UI thread trava o hook global de mouse (mesma thread), então roda em background.
+                var (cpu, gpu) = await Task.Run(() => (_perfService.GetCpuUsage(), _perfService.GetGpuUsage()));
+
+                CpuValueText.Text = $"{cpu:F0}%";
+                SetPerfBar(CpuBarFillCol, CpuBarEmptyCol, CpuBarFill, cpu);
+
+                if (gpu is null)
+                {
+                    GpuValueText.Text = "—";
+                    SetPerfBar(GpuBarFillCol, GpuBarEmptyCol, GpuBarFill, 0);
+                }
+                else
+                {
+                    GpuValueText.Text = $"{gpu.Value:F0}%";
+                    SetPerfBar(GpuBarFillCol, GpuBarEmptyCol, GpuBarFill, gpu.Value);
+                }
+            }
+            finally
+            {
+                _perfUpdateInProgress = false;
+            }
+        }
+
+        private static void SetPerfBar(ColumnDefinition fillCol, ColumnDefinition emptyCol, Border fill, double percent)
+        {
+            percent = Math.Clamp(percent, 0, 100);
+            fillCol.Width = new GridLength(percent, GridUnitType.Star);
+            emptyCol.Width = new GridLength(100 - percent, GridUnitType.Star);
+            fill.Background = new SolidColorBrush(percent > 85
+                ? System.Windows.Media.Color.FromRgb(0xF0, 0x50, 0x3C)
+                : System.Windows.Media.Color.FromRgb(0x6E, 0xA8, 0xFE));
         }
 
         private sealed class NotificationDisplayItem
@@ -141,6 +300,10 @@ namespace Cortinho
             NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
             _hwndSource?.RemoveHook(WndProc);
             _inputWatcher?.Dispose();
+            _perfTimer?.Stop();
+            _perfService.Dispose();
+            _discordWatcher?.Dispose();
+            _discordPresenceService.Dispose();
             base.OnClosed(e);
         }
 
@@ -237,8 +400,9 @@ namespace Cortinho
 
         private void NotchRoot_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.OriginalSource is DependencyObject source && MicToggleButton.IsAncestorOf(source))
-                return;
+            // Expandido não arrasta nem fecha por clique interno — fechar já é coberto por clicar fora,
+            // Esc ou o timer de auto-collapse. Controles internos (mic, atalhos, notificações) tratam o próprio clique.
+            if (_isExpanded) return;
             if (_isTransitioning) return;
             double startLeft = Left;
             double startTop = Top;
