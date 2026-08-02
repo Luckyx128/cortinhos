@@ -21,6 +21,7 @@ namespace Cortinho
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            ApplySystemAccent();
             base.OnStartup(e);
 
             if (!EnsurePackageIdentity())
@@ -150,6 +151,35 @@ namespace Cortinho
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Sobrescreve --accent (Theme/Tokens.xaml) com a cor de destaque real do Windows do usuário,
+        /// em vez do azul --brand-accent fixo que fica só de fallback. Ver TOKENS-WPF.md: "Nunca hard-code
+        /// o azul na UI — derive tudo de uma variável só".
+        /// </summary>
+        private void ApplySystemAccent()
+        {
+            try
+            {
+                var settings = new global::Windows.UI.ViewManagement.UISettings();
+                var c = settings.GetColorValue(global::Windows.UI.ViewManagement.UIColorType.Accent);
+                var accent = System.Windows.Media.Color.FromArgb(c.A, c.R, c.G, c.B);
+
+                Resources["AccentColor"] = accent;
+                Resources["AccentSoftColor"] = System.Windows.Media.Color.FromArgb(0x24, accent.R, accent.G, accent.B); // ~14%
+                Resources["AccentHoverColor"] = Lighten(accent, 0.18);
+            }
+            catch
+            {
+                // UISettings indisponível — segue com o --brand-accent de fallback já definido em Tokens.xaml
+            }
+        }
+
+        private static System.Windows.Media.Color Lighten(System.Windows.Media.Color c, double amount)
+        {
+            byte LightenChannel(byte channel) => (byte)Math.Clamp(channel + (255 - channel) * amount, 0, 255);
+            return System.Windows.Media.Color.FromArgb(c.A, LightenChannel(c.R), LightenChannel(c.G), LightenChannel(c.B));
         }
     }
 

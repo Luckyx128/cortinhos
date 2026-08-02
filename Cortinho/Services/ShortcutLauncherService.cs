@@ -6,6 +6,9 @@ namespace Cortinho.Services
 {
     public static class ShortcutLauncherService
     {
+        /// <summary>Falha ao lançar um atalho — alimenta o status "error" do notch em vez de um MessageBox modal.</summary>
+        public static event Action<string>? LaunchFailed;
+
         public static void Launch(ShortcutItem item)
         {
             var path = Environment.ExpandEnvironmentVariables(item.Path);
@@ -32,10 +35,9 @@ namespace Cortinho.Services
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Windows.MessageBox.Show($"Não consegui executar '{item.Name}':\n{ex.Message}",
-                    "Erro", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                LaunchFailed?.Invoke($"Não consegui abrir '{item.Name}'");
             }
         }
     }

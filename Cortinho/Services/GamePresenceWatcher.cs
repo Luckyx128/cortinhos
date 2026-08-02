@@ -18,6 +18,8 @@ namespace Cortinho.Services
         private readonly Func<List<ShortcutItem>> _getShortcuts;
         private Process? _activeProcess;
 
+        public string? CurrentAppName { get; private set; }
+
         public event Action<string?>? ActiveAppChanged;
 
         public GamePresenceWatcher(DiscordPresenceService presence, Func<List<ShortcutItem>> getShortcuts)
@@ -33,7 +35,12 @@ namespace Cortinho.Services
             _timer.Start();
         }
 
-        public void Stop() => _timer.Stop();
+        public void Stop()
+        {
+            _timer.Stop();
+            _activeProcess = null;
+            CurrentAppName = null;
+        }
 
         private void Poll()
         {
@@ -41,6 +48,7 @@ namespace Cortinho.Services
             {
                 _presence.ClearPresence();
                 _activeProcess = null;
+                CurrentAppName = null;
                 ActiveAppChanged?.Invoke(null);
             }
 
@@ -65,6 +73,7 @@ namespace Cortinho.Services
                     state: string.IsNullOrWhiteSpace(item.DiscordServerName) ? "Jogando" : item.DiscordServerName,
                     startedAtUtc: started);
 
+                CurrentAppName = item.Name;
                 ActiveAppChanged?.Invoke(item.Name);
                 break;
             }
