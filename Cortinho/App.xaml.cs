@@ -14,6 +14,7 @@ namespace Cortinho
     public partial class App : Application
     {
         private NotifyIcon? _trayIcon;
+        private MainWindow? _mainWindow;
 
         // Derivados do AppxManifest.xml (Package\AppxManifest.xml) — só mudam se Identity/Publisher ou o Application Id mudarem lá
         private const string PackageFamilyName = "Cortinho.Notch_7s34dc27ge8hm";
@@ -21,14 +22,33 @@ namespace Cortinho
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            Services.ThemeService.ApplySaved(); // antes do base.OnStartup — StartupUri cria a NotchWindow já aqui dentro
             ApplySystemAccent();
             base.OnStartup(e);
 
             if (!EnsurePackageIdentity())
                 return; // relançou como processo com identidade e está saindo — não cria UI nesse processo
 
-            var menu = new ContextMenuStrip();
-            menu.Items.Add("Sair", null, (_, _) => Shutdown());
+            _mainWindow = new MainWindow(); // criada oculta — só aparece via tray, hotkey Ctrl+Alt+L (se a flag de overlay estiver off) ou clique no ícone
+            _mainWindow.Overlay = new Overlay.OverlayController(); // design_handoff_overlay fase 1 — atrás da flag "OpenOverlayOnHotkey" em app-settings.json
+
+            // Acrylic real num ContextMenuStrip (WinForms) não é viável sem trabalho Win32 bem maior
+            // (SetWindowRgn pra cantos + composição própria) — divergência aceita do fase 4. Aproxima
+            // a paleta dark (surface-3/border-subtle/hover) via ToolStripProfessionalRenderer.
+            var menu = new ContextMenuStrip
+            {
+                Renderer = new TrayMenuRenderer(),
+                ForeColor = System.Drawing.Color.FromArgb(0xEC, 0xEE, 0xF2),
+                Font = new System.Drawing.Font("Segoe UI", 9f),
+                ShowImageMargin = false,
+            };
+            menu.Items.Add("Abrir launcher", null, (_, _) => _mainWindow.ShowLauncher());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Sair", null, (_, _) =>
+            {
+                _mainWindow?.ForceClose();
+                Shutdown();
+            });
 
             _trayIcon = new NotifyIcon
             {
@@ -36,6 +56,11 @@ namespace Cortinho
                 Visible = true,
                 Text = "Cortinho",
                 ContextMenuStrip = menu
+            };
+            _trayIcon.MouseClick += (_, args) =>
+            {
+                if (args.Button == System.Windows.Forms.MouseButtons.Left)
+                    _mainWindow.ShowLauncher();
             };
         }
 
@@ -180,6 +205,48 @@ namespace Cortinho
         {
             byte LightenChannel(byte channel) => (byte)Math.Clamp(channel + (255 - channel) * amount, 0, 255);
             return System.Windows.Media.Color.FromArgb(c.A, LightenChannel(c.R), LightenChannel(c.G), LightenChannel(c.B));
+        }
+
+        /// <summary>Aproxima --surface-3/--border-subtle/--hover-overlay num ContextMenuStrip do WinForms
+        /// (menu da bandeja) — pinta direto (sem ToolStripProfessionalColorTable, que não está disponível
+        /// nesse SDK de WinForms empacotado com o WPF) via ToolStripRenderer.</summary>
+        private sealed class TrayMenuRenderer : ToolStripRenderer
+        {
+            private static readonly System.Drawing.Color Bg = System.Drawing.Color.FromArgb(0x2B, 0x33, 0x3D);
+            private static readonly System.Drawing.Color BorderColor = System.Drawing.Color.FromArgb(0x3A, 0x42, 0x4C);
+            private static readonly System.Drawing.Color Hover = System.Drawing.Color.FromArgb(0x39, 0x44, 0x50);
+            private static readonly System.Drawing.Color Text = System.Drawing.Color.FromArgb(0xEC, 0xEE, 0xF2);
+
+            protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+            {
+                e.Graphics.Clear(Bg);
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                using var pen = new System.Drawing.Pen(BorderColor);
+                e.Graphics.DrawRectangle(pen, 0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+            }
+
+            protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+            {
+                if (!e.Item.Selected) return;
+                using var brush = new System.Drawing.SolidBrush(Hover);
+                e.Graphics.FillRectangle(brush, new System.Drawing.Rectangle(System.Drawing.Point.Empty, e.Item.Size));
+            }
+
+            protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+            {
+                e.TextColor = Text;
+                base.OnRenderItemText(e);
+            }
+
+            protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+            {
+                using var pen = new System.Drawing.Pen(BorderColor);
+                int y = e.Item.Height / 2;
+                e.Graphics.DrawLine(pen, 4, y, e.Item.Width - 4, y);
+            }
         }
     }
 

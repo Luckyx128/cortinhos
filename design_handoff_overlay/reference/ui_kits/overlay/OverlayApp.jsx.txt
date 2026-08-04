@@ -1,0 +1,490 @@
+/* Cortinhos — Overlay (tela cheia) exploration.
+   Explores replacing the centered launcher window with a Discord-style
+   fullscreen overlay: dimmed screen + floating islands the user arranges.
+   Stage is a fixed 1440×860 "monitor" scaled to fit the preview. */
+const XDS = window.CortinhosDesignSystem_c0acc5;
+const { Icon, Notch, Tooltip } = XDS;
+
+const STAGE_W = 1440, STAGE_H = 860;
+const STORE_KEY = 'cortinhos.overlay.explore.v2';
+
+/* Island sizes (w, h). h omitted = content height. */
+const SIZES = {
+  notch: { w: 400 },
+  search: { w: 460 },
+  grid: { w: 860, h: 364 },
+  mic: { w: 264 },
+  notif: { w: 264, h: 200 },
+  quick: { w: 264 },
+  discord: { w: 264 },
+  perf: { w: 264 },
+  settings: { w: 44, h: 44 },
+};
+
+/* Three arrangements. Each also picks how the grid renders, because the
+   arrangement and the grid's density are the same decision. */
+const PRESETS = {
+  A: {
+    name: 'Constelação', gridMode: 'tiles7',
+    blurb: 'Tudo encostado nas bordas, grid como cinturão inferior. Centro da tela livre pro jogo.',
+    size: { grid: { w: 848, h: 364 } },
+    posIsland: { search: { x: 24, y: 206 } },
+    pos: {
+      notch: { x: 520, y: 0 }, search: { x: 490, y: 140 }, grid: { x: 300, y: 478 },
+      mic: { x: 24, y: 206 }, notif: { x: 24, y: 286 }, quick: { x: 24, y: 502 },
+      discord: { x: 1152, y: 206 }, perf: { x: 1152, y: 336 }, settings: { x: 1372, y: 24 },
+    },
+  },
+  B: {
+    name: 'Painel direito', gridMode: 'tiles5',
+    blurb: 'Grid vira um painel alto à direita, notch ancorado à esquerda. Metade esquerda-baixa fica livre.',
+    size: { grid: { w: 686, h: 580 } },
+    pos: {
+      notch: { x: 24, y: 0 }, search: { x: 730, y: 80 }, grid: { x: 730, y: 150 },
+      mic: { x: 24, y: 380 }, perf: { x: 24, y: 460 }, discord: { x: 24, y: 574 },
+      notif: { x: 24, y: 700 }, quick: { x: 470, y: 380 }, settings: { x: 1372, y: 790 },
+    },
+  },
+  C: {
+    name: 'Lista', gridMode: 'list',
+    blurb: 'Atalhos como lista densa numa coluna estreita. Pega o mínimo de tela — quase todo o jogo visível.',
+    size: { grid: { w: 300, h: 568 } },
+    pos: {
+      notch: { x: 520, y: 0 }, search: { x: 24, y: 56 }, grid: { x: 24, y: 120 },
+      quick: { x: 24, y: 676 }, mic: { x: 1152, y: 120 }, perf: { x: 1152, y: 204 },
+      discord: { x: 1152, y: 320 }, notif: { x: 1152, y: 450 }, settings: { x: 1372, y: 24 },
+    },
+  },
+};
+
+const SCRIMS = {
+  uniforme: { label: 'Uniforme', desc: 'Scrim sólido + blur leve na tela toda, como o Discord.' },
+  vinheta: { label: 'Vinheta', desc: 'Escurece as bordas e deixa o centro do jogo respirando.' },
+  halo: { label: 'Halo local', desc: 'Sem scrim global — cada ilha carrega a própria sombra difusa.' },
+  nenhum: { label: 'Nenhum', desc: 'Só as ilhas flutuando. Mais leve, menos claro que o overlay está ativo.' },
+};
+
+const NOTCH_MODES = {
+  ilha: { label: 'Ilha-mãe', desc: 'O notch abre expandido como a ilha superior; mic, perf, Discord e notificações vivem dentro dele.' },
+  separado: { label: 'Separado', desc: 'O notch continua sendo a pílula da taskbar; as ilhas são superfícies independentes.' },
+  oculto: { label: 'Oculto', desc: 'Com o overlay aberto o notch some — uma superfície de cada vez.' },
+};
+
+const ABSORBED = ['mic', 'notif', 'perf', 'discord'];
+
+/* ── fake gameplay backdrop (placeholder, not artwork) ────────── */
+function GameBackdrop() {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, overflow: 'hidden',
+      background: '#0b0d10',
+      backgroundImage: 'repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 22px), radial-gradient(ellipse 80% 70% at 50% 40%, #1b2431, #0b0d10 70%)',
+    }}>
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center',
+        fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,.22)', letterSpacing: '.14em', textTransform: 'uppercase',
+      }}>jogo em execução · 1440 × 860</div>
+    </div>
+  );
+}
+
+/* With the overlay open, the pill stops repeating what the islands show and
+   drops to identity + one status dot. Same notch grammar, less to read. */
+function IdentityPill({ alert }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: 'var(--taskbar-height)', padding: hover ? '0 14px' : '0 12px',
+        backgroundColor: 'var(--taskbar-tint)', backdropFilter: 'var(--material-acrylic-thin)',
+        border: '1px solid var(--border-subtle)', borderTop: 'none',
+        borderRadius: '0 0 var(--radius-notch) var(--radius-notch)',
+        boxShadow: 'var(--elev-2), inset 0 -1px 0 var(--taskbar-hairline)',
+        transition: 'padding var(--dur-med) var(--ease-spring)',
+      }}>
+      <img src="../../assets/logo-mini.svg" alt="cortinhos" width="22" height="22" style={{ display: 'block' }} />
+      {hover && (
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-medium)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Overlay ativo</span>
+      )}
+      <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: alert ? 'var(--warning)' : 'var(--success)' }} />
+    </div>
+  );
+}
+
+/* ── island wrapper: chrome, drag, edit affordances ───────────── */
+function Island({ id, label, pos, size, edit, scrim, onDrag, bare, children }) {
+  const [drag, setDrag] = React.useState(false);
+  const start = React.useRef(null);
+
+  const down = (e) => {
+    if (!edit) return;
+    e.preventDefault(); e.stopPropagation();
+    start.current = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y };
+    setDrag(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const move = (e) => {
+    if (!drag || !start.current) return;
+    const k = window.__overlayScale || 1;
+    const nx = start.current.x + (e.clientX - start.current.px) / k;
+    const ny = start.current.y + (e.clientY - start.current.py) / k;
+    onDrag(id, snap(nx, ny, size));
+  };
+  const up = (e) => { setDrag(false); start.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {} };
+
+  return (
+    <div
+      data-island={id}
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+      style={{
+        position: 'absolute', left: pos.x, top: pos.y, width: size.w,
+        height: size.h || 'auto', boxSizing: 'border-box',
+        zIndex: drag ? 40 : 20,
+        cursor: edit ? (drag ? 'grabbing' : 'grab') : 'default',
+        transform: drag ? 'scale(1.02)' : 'scale(1)',
+        transition: drag ? 'none' : 'left var(--dur-med) var(--ease-spring), top var(--dur-med) var(--ease-spring), width var(--dur-med) var(--ease-spring), height var(--dur-med) var(--ease-spring)',
+      }}>
+      {scrim === 'halo' && (
+        <div style={{
+          position: 'absolute', inset: -100, zIndex: -1, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at center, rgba(6,8,11,.85) 0%, rgba(6,8,11,.66) 42%, rgba(6,8,11,0) 74%)',
+        }} />
+      )}
+      {edit && (
+        <div style={{
+          position: 'absolute', inset: -8, borderRadius: 'calc(var(--radius-lg) + 6px)',
+          border: `1.5px dashed ${drag ? 'var(--accent)' : 'var(--border-strong)'}`,
+          pointerEvents: 'none',
+        }} />
+      )}
+      {edit && (
+        <div style={{
+          position: 'absolute', left: -8, top: -34, display: 'flex', alignItems: 'center', gap: 4,
+          padding: '3px 4px 3px 8px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--surface-3)', border: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)' }}>{label}</span>
+          <span style={{ display: 'inline-flex', width: 20, height: 20, alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}><Icon name="settings" size={13} /></span>
+          <span style={{ display: 'inline-flex', width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderRadius: 4, background: 'var(--accent)', color: 'var(--text-on-accent)' }}><Icon name="pin" size={12} /></span>
+        </div>
+      )}
+      {bare ? children : (
+        <div style={{
+          height: '100%', boxSizing: 'border-box', padding: 16,
+          background: 'var(--material-acrylic)', backdropFilter: 'var(--material-acrylic-blur)',
+          border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--elev-4)', color: 'var(--text-primary)',
+          display: 'flex', flexDirection: 'column', minHeight: 0,
+        }}>{children}</div>
+      )}
+    </div>
+  );
+}
+
+function snap(x, y, size) {
+  const M = 24, w = size.w, h = size.h || 90;
+  const cands = [[x, M], [x, STAGE_H - h - M], [M, y], [STAGE_W - w - M, y], [(STAGE_W - w) / 2, y], [x, 0]];
+  let nx = x, ny = y;
+  for (const [cx, cy] of cands) {
+    if (Math.abs(cx - x) < 14) nx = cx;
+    if (Math.abs(cy - y) < 14) ny = cy;
+  }
+  nx = Math.max(0, Math.min(STAGE_W - w, Math.round(nx)));
+  ny = Math.max(0, Math.min(STAGE_H - h, Math.round(ny)));
+  return { x: nx, y: ny };
+}
+
+/* ── studio control rail (scaffolding, not product chrome) ────── */
+function Seg({ options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 2, background: 'rgba(0,0,0,.4)', borderRadius: 5, padding: 2 }}>
+      {options.map(o => (
+        <button key={o.v} type="button" onClick={() => onChange(o.v)} style={{
+          padding: '4px 9px', borderRadius: 3, border: 'none', cursor: 'pointer',
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          background: value === o.v ? 'var(--accent)' : 'transparent',
+          color: value === o.v ? 'var(--text-on-accent)' : 'rgba(255,255,255,.62)',
+        }}>{o.l}</button>
+      ))}
+    </div>
+  );
+}
+
+function RailRow({ label, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.45)' }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function OverlayApp() {
+  const saved = React.useMemo(() => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (_) { return {}; } }, []);
+  const [preset, setPreset] = React.useState(saved.preset || 'A');
+  const [layout, setLayout] = React.useState(saved.layout || null);
+  const [scrim, setScrim] = React.useState(saved.scrim || 'vinheta');
+  const [notchMode, setNotchMode] = React.useState(saved.notchMode || 'separado');
+  const [edit, setEdit] = React.useState(false);
+  const [hitViz, setHitViz] = React.useState(false);
+  const [open, setOpen] = React.useState(true);
+  const [rail, setRail] = React.useState(true);
+  const [feas, setFeas] = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const [muted, setMuted] = React.useState(false);
+  const [deaf, setDeaf] = React.useState(false);
+  const [tracking, setTracking] = React.useState(true);
+  const [toast, setToast] = React.useState(null);
+  const [notifs, setNotifs] = React.useState([
+    { title: 'Discord', body: 'Luckyx entrou em Sala 3', time: 'agora', icon: 'app' },
+    { title: 'Steam', body: 'Download concluído — Mods', time: '2 min', icon: 'app' },
+    { title: 'OBS', body: 'Gravação salva em Clipes', time: '9 min', icon: 'folder' },
+  ]);
+  const [perf, setPerf] = React.useState({ cpu: 41, gpu: 88, fps: 144 });
+  const wrapRef = React.useRef(null);
+  const [scale, setScale] = React.useState(1);
+
+  const P = PRESETS[preset];
+  const base = { ...P.pos, ...(notchMode === 'ilha' ? (P.posIsland || {}) : {}) };
+  const pos = layout || base;
+  const sizeFor = (id) => ({ ...SIZES[id], ...((P.size || {})[id] || {}) });
+
+  React.useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const fit = () => {
+      const k = Math.min(el.clientWidth / STAGE_W, el.clientHeight / STAGE_H);
+      window.__overlayScale = k; setScale(k);
+    };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ preset, layout, scrim, notchMode }));
+  }, [preset, layout, scrim, notchMode]);
+
+  React.useEffect(() => {
+    const t = setInterval(() => setPerf(p => ({
+      cpu: Math.max(18, Math.min(97, p.cpu + Math.round((Math.random() - .5) * 12))),
+      gpu: Math.max(30, Math.min(99, p.gpu + Math.round((Math.random() - .5) * 10))),
+      fps: Math.max(70, Math.min(240, p.fps + Math.round((Math.random() - .5) * 18))),
+    })), 1600);
+    return () => clearInterval(t);
+  }, []);
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      const typing = e.target && /input|textarea/i.test(e.target.tagName);
+      if (e.key === 'Escape') { setFeas(false); setOpen(false); return; }
+      if (typing) return;
+      const k = e.key.toLowerCase();
+      if (k === 'l') setEdit(v => !v);
+      if (k === 'v') setFeas(v => !v);
+      if (k === 'h') setRail(v => !v);
+      if (k === 'o') setOpen(v => !v);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const usePreset = (p) => { setPreset(p); setLayout(null); };
+  const onDrag = (id, next) => setLayout(l => ({ ...(l || base), [id]: next }));
+  const reset = () => setLayout(null);
+
+  const results = window.OVERLAY_SEED.filter(i => i.name.toLowerCase().includes(query.toLowerCase()));
+  const favs = window.OVERLAY_SEED.filter(i => i.pinned);
+  const fire = (it) => { setToast(`Abrindo ${it.name}…`); setTimeout(() => setToast(null), 1400); };
+
+  const absorbed = notchMode === 'ilha';
+  const shown = (id) => !(absorbed && ABSORBED.includes(id));
+
+  const scrimLayer = scrim === 'uniforme'
+    ? { background: 'rgba(6,8,11,.62)', backdropFilter: 'blur(2px)' }
+    : scrim === 'vinheta'
+      ? { background: 'radial-gradient(ellipse 62% 55% at 50% 48%, rgba(6,8,11,.10), rgba(6,8,11,.86) 100%)' }
+      : null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#07090c', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div ref={wrapRef} style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{
+        position: 'relative', width: STAGE_W, height: STAGE_H, flex: 'none',
+        transform: `scale(${scale})`, transformOrigin: 'center center',
+        outline: '1px solid rgba(255,255,255,.08)', overflow: 'hidden',
+      }}>
+        <GameBackdrop />
+
+        {/* scrim */}
+        {open && scrimLayer && (
+          <div style={{ position: 'absolute', inset: 0, ...scrimLayer, transition: 'opacity var(--dur-med) var(--ease-out)' }} />
+        )}
+
+        {/* click-through visualisation */}
+        {open && hitViz && (
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            backgroundImage: 'repeating-linear-gradient(45deg, rgba(34,197,94,.10) 0 6px, transparent 6px 14px)',
+          }}>
+            <div style={{
+              position: 'absolute', left: '50%', bottom: 28, transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 'var(--radius-pill)',
+              background: 'rgba(6,8,11,.8)', border: '1px solid var(--success)',
+              fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--success)',
+            }}>área hachurada = clique passa pro jogo</div>
+          </div>
+        )}
+
+        {/* closed state — the notch is all that remains */}
+        {!open && (
+          <>
+            <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', zIndex: 20 }}>
+              <Notch micMuted={muted} discordApp="Valorant" discordTracking={tracking} notifications={notifs} />
+            </div>
+            <div style={{
+              position: 'absolute', left: '50%', top: '52%', transform: 'translate(-50%,-50%)', textAlign: 'center',
+              fontFamily: 'var(--font-mono)', fontSize: 13, color: 'rgba(255,255,255,.4)', letterSpacing: '.08em',
+            }}>overlay fechado — Ctrl+Alt+L pra abrir</div>
+          </>
+        )}
+
+        {/* ── islands ─────────────────────────────────────────── */}
+        {open && notchMode !== 'oculto' && (
+          <Island id="notch" label="Notch" pos={pos.notch} size={sizeFor('notch')} edit={edit} scrim={scrim} onDrag={onDrag} bare>
+            {absorbed ? (
+              <Notch state="expanded" onStateChange={() => {}}
+                micMuted={muted} onToggleMic={() => setMuted(m => !m)}
+                discordApp="Valorant" discordTracking={tracking} onToggleTracking={() => setTracking(t => !t)}
+                quickShortcuts={favs.map(f => ({ name: f.name, type: f.type, onOpen: () => fire(f) }))}
+                notifications={notifs} onClearNotifications={() => setNotifs([])}
+                perf={perf} onOpenLauncher={() => setToast('Abrindo tudo…')} />
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <IdentityPill alert={muted} />
+              </div>
+            )}
+          </Island>
+        )}
+
+        {open && (
+          <Island id="search" label="Busca" pos={pos.search} size={sizeFor('search')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.SearchIsland query={query} setQuery={setQuery} results={results} />
+          </Island>
+        )}
+
+        {open && (
+          <Island id="grid" label="Atalhos" pos={pos.grid} size={sizeFor('grid')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.GridIsland items={results} mode={P.gridMode} onOpen={fire} />
+          </Island>
+        )}
+
+        {open && shown('mic') && (
+          <Island id="mic" label="Mic + áudio" pos={pos.mic} size={sizeFor('mic')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.MicIsland muted={muted} onToggle={() => setMuted(m => !m)} deaf={deaf} onToggleDeaf={() => setDeaf(d => !d)} />
+          </Island>
+        )}
+
+        {open && shown('notif') && (
+          <Island id="notif" label="Notificações" pos={pos.notif} size={sizeFor('notif')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.NotifIsland items={notifs} onClear={() => setNotifs([])} />
+          </Island>
+        )}
+
+        {open && shown('perf') && (
+          <Island id="perf" label="Desempenho" pos={pos.perf} size={sizeFor('perf')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.PerfIsland perf={perf} />
+          </Island>
+        )}
+
+        {open && shown('discord') && (
+          <Island id="discord" label="Discord" pos={pos.discord} size={sizeFor('discord')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.DiscordIsland app="Valorant" tracking={tracking} onToggle={() => setTracking(t => !t)} elapsed="01:24:09" />
+          </Island>
+        )}
+
+        {open && (
+          <Island id="quick" label="Favoritos" pos={pos.quick} size={sizeFor('quick')} edit={edit} scrim={scrim} onDrag={onDrag}>
+            <window.QuickIsland items={favs} onOpen={fire} />
+          </Island>
+        )}
+
+        {open && (
+          <Island id="settings" label="Config" pos={pos.settings} size={sizeFor('settings')} edit={edit} scrim={scrim} onDrag={onDrag} bare>
+            <button type="button" title="Configurações" style={{
+              width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--material-acrylic)', backdropFilter: 'var(--material-acrylic-blur)',
+              border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--elev-4)', cursor: 'pointer', color: 'var(--text-secondary)',
+            }}><Icon name="settings" size={20} /></button>
+          </Island>
+        )}
+
+        {/* edit-mode banner */}
+        {open && edit && (
+          <div style={{
+            position: 'absolute', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 50,
+            display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px 8px 14px', borderRadius: 'var(--radius-pill)',
+            background: 'var(--surface-3)', border: '1px solid var(--border-strong)', boxShadow: 'var(--elev-4)',
+          }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>Arraste as ilhas — elas encaixam nas bordas.</span>
+            <button type="button" onClick={reset} style={ghostBtn}>Restaurar arranjo</button>
+            <button type="button" onClick={() => setEdit(false)} style={{ ...ghostBtn, background: 'var(--accent)', color: 'var(--text-on-accent)', border: '1px solid transparent' }}>Salvar</button>
+          </div>
+        )}
+
+        {toast && (
+          <div style={{
+            position: 'absolute', left: '50%', top: 28, transform: 'translateX(-50%)', zIndex: 60,
+            padding: '8px 14px', borderRadius: 'var(--radius-pill)', background: 'var(--accent-soft)',
+            border: '1px solid var(--accent)', color: 'var(--text-primary)',
+            fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-semibold)',
+          }}>{toast}</div>
+        )}
+      </div>
+      </div>
+
+      {/* ── studio rail ───────────────────────────────────────── */}
+      {rail ? (
+        <div style={{
+          flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 16px 12px',
+          background: 'rgba(10,13,17,.96)', borderTop: '1px dashed rgba(255,255,255,.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)' }}>exploração</span>
+            {preset === 'A' && scrim === 'vinheta' && notchMode === 'separado' && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 'var(--radius-pill)', background: 'var(--success-soft)', border: '1px solid var(--success)', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--success)' }}>direção escolhida</span>
+            )}
+            <RailRow label="Arranjo"><Seg value={preset} onChange={usePreset} options={[{ v: 'A', l: 'A' }, { v: 'B', l: 'B' }, { v: 'C', l: 'C' }]} /></RailRow>
+            <RailRow label="Escurecer"><Seg value={scrim} onChange={setScrim} options={[{ v: 'uniforme', l: 'unif' }, { v: 'vinheta', l: 'vinh' }, { v: 'halo', l: 'halo' }, { v: 'nenhum', l: 'off' }]} /></RailRow>
+            <RailRow label="Notch"><Seg value={notchMode} onChange={setNotchMode} options={[{ v: 'ilha', l: 'ilha-mãe' }, { v: 'separado', l: 'sep' }, { v: 'oculto', l: 'off' }]} /></RailRow>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => setEdit(v => !v)} style={edit ? activeBtn : ghostBtn}>L · editar layout</button>
+              <button type="button" onClick={() => setHitViz(v => !v)} style={hitViz ? activeBtn : ghostBtn}>click-through</button>
+              <button type="button" onClick={() => setOpen(v => !v)} style={ghostBtn}>O · {open ? 'fechar' : 'abrir'}</button>
+              <button type="button" onClick={() => setFeas(true)} style={ghostBtn}>V · viabilidade</button>
+            </div>
+            <span style={{ flex: 1 }} />
+            <button type="button" onClick={() => setRail(false)} style={{ ...ghostBtn, padding: '3px 8px', fontSize: 10 }}>H ocultar</button>
+          </div>
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 11.5, lineHeight: 1.5, color: 'rgba(255,255,255,.5)', textWrap: 'pretty' }}>
+            <b style={{ color: 'rgba(255,255,255,.82)' }}>{P.name}</b> — {P.blurb} <span style={{ opacity: .45 }}>·</span> <b style={{ color: 'rgba(255,255,255,.82)' }}>{SCRIMS[scrim].label}</b> — {SCRIMS[scrim].desc} <span style={{ opacity: .45 }}>·</span> <b style={{ color: 'rgba(255,255,255,.82)' }}>{NOTCH_MODES[notchMode].label}</b> — {NOTCH_MODES[notchMode].desc}
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setRail(true)} style={{ ...ghostBtn, position: 'fixed', left: 16, bottom: 16, zIndex: 100 }}>exploração</button>
+      )}
+
+      {feas && <window.FeasibilityPanel onClose={() => setFeas(false)} />}
+    </div>
+  );
+}
+
+const ghostBtn = {
+  padding: '5px 9px', borderRadius: 5, cursor: 'pointer',
+  background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.16)',
+  color: 'rgba(255,255,255,.78)', fontFamily: 'var(--font-mono)', fontSize: 11,
+};
+const activeBtn = { ...ghostBtn, background: 'var(--accent)', color: 'var(--text-on-accent)', border: '1px solid transparent' };
+
+window.OverlayApp = OverlayApp;

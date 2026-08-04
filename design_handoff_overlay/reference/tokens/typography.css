@@ -1,0 +1,27 @@
+/* Cortinhos — typography tokens
+   Display/headings: Chakra Petch (techy, gamer, condensed feel)
+   Body/UI: IBM Plex Sans (built for software; more character than Inter)
+   Hotkeys/mono: IBM Plex Mono (matched family — keyboard shortcuts, paths, commands) */
+:root{
+  --font-display:'Chakra Petch',system-ui,sans-serif;
+  --font-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono','Cascadia Code',ui-monospace,monospace;
+
+  /* type scale (px) */
+  --fs-display:28px;   --lh-display:32px;
+  --fs-title:20px;     --lh-title:26px;
+  --fs-subtitle:15px;  --lh-subtitle:20px;
+  --fs-body:13px;      --lh-body:18px;
+  --fs-caption:11px;   --lh-caption:14px;
+  --fs-kbd:11px;
+
+  /* weights */
+  --fw-regular:400;   /* @kind other */
+  --fw-medium:500;    /* @kind other */
+  --fw-semibold:600;  /* @kind other */
+  --fw-bold:700;      /* @kind other */
+
+  /* tracking */
+  --tracking-display:.01em;
+  --tracking-caps:.08em;   /* uppercase eyebrow / techy labels */
+}

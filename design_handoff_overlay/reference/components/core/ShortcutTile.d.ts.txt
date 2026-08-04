@@ -1,0 +1,31 @@
+import React from 'react';
+
+export type ShortcutType = 'app' | 'folder' | 'url' | 'command';
+
+/**
+ * @startingPoint section="Cortinhos" subtitle="Steam-density launcher tile with hover-to-open" viewport="180x240"
+ */
+export interface ShortcutTileProps {
+  /** Shortcut display name. */
+  name: string;
+  /** One of the four launcher types — drives the gradient/glyph + label. */
+  type?: ShortcutType;
+  /** Optional cover-art image URL. When set it fills the capsule (Steam-style); otherwise a typed gradient + glyph watermark is used. */
+  cover?: string;
+  /** Optional per-tile hotkey label, e.g. "Ctrl+Alt+1". */
+  hotkey?: string;
+  /** Show the "rodando" (running) status badge. */
+  running?: boolean;
+  /** Show the pin marker in the corner. */
+  pinned?: boolean;
+  /** Fired on left-click / the Abrir action. */
+  onOpen?: () => void;
+  /** Fired on right-click — open your ContextMenu here. */
+  onContextMenu?: (e: React.MouseEvent) => void;
+  /** Overlay action label. Default "Abrir". */
+  actionLabel?: string;
+  style?: React.CSSProperties;
+}
+
+/** The core launcher tile. 3:4 cover ratio, hover lift + reveal of the primary action. */
+export function ShortcutTile(props: ShortcutTileProps): JSX.Element;

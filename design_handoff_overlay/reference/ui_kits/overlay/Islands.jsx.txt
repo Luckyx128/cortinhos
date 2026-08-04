@@ -1,0 +1,259 @@
+/* Cortinhos — Overlay islands.
+   Each island is the CONTENT only; positioning, chrome and drag live in
+   OverlayApp.jsx's <Island> wrapper. Composes design-system primitives. */
+const ODS = window.CortinhosDesignSystem_c0acc5;
+const { ShortcutTile, Badge, Icon, Tooltip } = ODS;
+
+const OVERLAY_SEED = [
+  { id: 1, name: 'Discord', type: 'app', hotkey: 'Ctrl+Alt+1', running: true, pinned: true },
+  { id: 2, name: 'Steam', type: 'app', running: true, pinned: true },
+  { id: 3, name: 'Valorant', type: 'app', hotkey: 'Ctrl+Alt+2', running: false },
+  { id: 4, name: 'OBS Studio', type: 'app', running: true, pinned: true },
+  { id: 5, name: 'Spotify', type: 'app', running: true },
+  { id: 6, name: 'Prints', type: 'folder', pinned: true },
+  { id: 7, name: 'Clipes', type: 'folder' },
+  { id: 8, name: 'Mods', type: 'folder' },
+  { id: 9, name: 'Twitch', type: 'url', hotkey: 'Ctrl+Alt+3' },
+  { id: 10, name: 'YouTube', type: 'url' },
+  { id: 11, name: 'Painel do bot', type: 'url' },
+  { id: 12, name: 'Reiniciar áudio', type: 'command', pinned: true },
+  { id: 13, name: 'Limpar shader cache', type: 'command' },
+  { id: 14, name: 'Modo jogo', type: 'command', hotkey: 'Ctrl+Alt+4' },
+];
+
+const islandLabel = {
+  fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-semibold)',
+  color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-caps)',
+};
+const islandCard = {
+  background: 'var(--surface-2)', border: '1px solid var(--border-subtle)',
+  borderRadius: 'var(--radius-sm)',
+};
+
+/* ── busca / command palette ─────────────────────────────────── */
+function SearchIsland({ query, setQuery, results }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 44, padding: '0 4px' }}>
+        <Icon name="search" size={18} color="var(--text-tertiary)" />
+        <input
+          value={query} onChange={e => setQuery(e.target.value)}
+          placeholder="Buscar atalho, pasta ou comando…"
+          style={{
+            flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
+            fontFamily: 'var(--font-body)', fontSize: 'var(--fs-subtitle)', color: 'var(--text-primary)',
+          }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: 'var(--text-tertiary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '3px 7px' }}>Enter</span>
+      </div>
+      {query && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderTop: '1px solid var(--border-subtle)', paddingTop: 6, marginTop: 2 }}>
+          {results.length === 0 && <div style={{ padding: '8px 6px', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', color: 'var(--text-tertiary)' }}>Nada encontrado.</div>}
+          {results.slice(0, 4).map((r, i) => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', borderRadius: 'var(--radius-sm)', background: i === 0 ? 'var(--accent-soft)' : 'transparent' }}>
+              <Icon name={r.type} size={16} color="var(--accent)" />
+              <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>{r.name}</span>
+              {r.hotkey && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: 'var(--text-tertiary)' }}>{r.hotkey}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── grid de atalhos ─────────────────────────────────────────── */
+function GridIsland({ items, mode, onOpen }) {
+  if (mode === 'list') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        <IslandHead title="Atalhos" count={items.length} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto', minHeight: 0 }}>
+          {items.map(it => <ListRow key={it.id} item={it} onOpen={onOpen} />)}
+        </div>
+      </div>
+    );
+  }
+  const cols = mode === 'tiles5' ? 5 : 7;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <IslandHead title="Atalhos" count={items.length} />
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 10, alignContent: 'start', overflow: 'auto', minHeight: 0, paddingRight: 2 }}>
+        {items.map(it => (
+          <ShortcutTile key={it.id} name={it.name} type={it.type} hotkey={it.hotkey} style={{ minWidth: 0 }}
+            running={it.running} pinned={it.pinned} onOpen={() => onOpen(it)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListRow({ item, onOpen }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button type="button" onClick={() => onOpen(item)}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9, width: '100%', height: 34, padding: '0 8px',
+        border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', textAlign: 'left',
+        background: hover ? 'var(--taskbar-hover)' : 'transparent',
+      }}>
+      <Icon name={item.type} size={16} color="var(--accent)" />
+      <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+      {item.running && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} />}
+      {item.hotkey && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: 'var(--text-tertiary)' }}>{item.hotkey.replace('Ctrl+Alt+', '⌃⌥')}</span>}
+    </button>
+  );
+}
+
+function IslandHead({ title, count, action }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+      <span style={islandLabel}>{title}{count != null && <span style={{ color: 'var(--text-tertiary)', opacity: .7 }}> · {count}</span>}</span>
+      {action}
+    </div>
+  );
+}
+
+/* ── mic + áudio ─────────────────────────────────────────────── */
+function MicIsland({ muted, onToggle, deaf, onToggleDeaf }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <PillBtn active={muted} danger onClick={onToggle} icon={muted ? 'mic-off' : 'mic'}
+        label={muted ? 'Mutado' : 'Mic'} />
+      <PillBtn active={deaf} danger onClick={onToggleDeaf} icon="notification"
+        label={deaf ? 'Surdo' : 'Áudio'} />
+      <div style={{ flex: 1 }} />
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 22 }}>
+        {[0.35, 0.7, 1, 0.55, 0.2].map((v, i) => (
+          <span key={i} style={{
+            width: 3, borderRadius: 2, height: `${(muted ? 0.12 : v) * 100}%`,
+            background: muted ? 'var(--text-tertiary)' : 'var(--success)',
+            transition: 'height var(--dur-med) var(--ease-out)',
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PillBtn({ icon, label, active, danger, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const tone = active && danger ? 'var(--danger)' : 'var(--text-primary)';
+  return (
+    <button type="button" onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: '0 11px',
+        borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: tone,
+        background: active && danger ? 'var(--danger-soft)' : hover ? 'var(--taskbar-hover)' : 'var(--surface-2)',
+        border: `1px solid ${active && danger ? 'var(--danger)' : 'var(--border-subtle)'}`,
+        fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-medium)',
+      }}>
+      <span style={{ display: 'inline-flex', width: 16, height: 16 }}><Icon name={icon} size="100%" /></span>
+      {label}
+    </button>
+  );
+}
+
+/* ── Discord Rich Presence ───────────────────────────────────── */
+function DiscordIsland({ app, tracking, onToggle, elapsed }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <IslandHead title="Discord" action={
+        <button type="button" onClick={onToggle} style={{
+          width: 34, height: 20, borderRadius: 'var(--radius-pill)', border: 'none', cursor: 'pointer', padding: 2,
+          backgroundColor: tracking ? 'var(--accent)' : 'var(--surface-3)', display: 'flex',
+          justifyContent: tracking ? 'flex-end' : 'flex-start', transition: 'background-color var(--dur-fast)',
+        }}><span style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff' }} /></button>
+      } />
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-sm)', background: 'linear-gradient(150deg,#1f4a73,#132b45)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
+          <Icon name="gamepad" size={22} color={tracking ? 'var(--accent)' : 'var(--text-tertiary)'} />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--fs-subtitle)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {tracking ? app : 'Rastreio desativado'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tracking ? 'var(--success)' : 'var(--text-tertiary)' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)' }}>{tracking ? elapsed : '--:--'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── performance ─────────────────────────────────────────────── */
+function PerfIsland({ perf }) {
+  return (
+    <div>
+      <IslandHead title="Desempenho" />
+      <div style={{ display: 'flex', gap: 6 }}>
+        {[['CPU', perf.cpu, '%'], ['GPU', perf.gpu, '%'], ['FPS', perf.fps, '']].map(([k, v, unit]) => (
+          <div key={k} style={{ ...islandCard, flex: 1, padding: '7px 9px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--text-tertiary)', letterSpacing: '.06em' }}>{k}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 'var(--fw-semibold)', color: v > 85 && unit === '%' ? 'var(--danger)' : 'var(--text-primary)', lineHeight: 1.2 }}>{v}{unit}</div>
+            {unit === '%' && (
+              <div style={{ height: 2, background: 'var(--surface-3)', borderRadius: 1, marginTop: 4 }}>
+                <div style={{ height: '100%', width: `${v}%`, background: v > 85 ? 'var(--danger)' : 'var(--accent)', borderRadius: 1, transition: 'width var(--dur-med) var(--ease-out)' }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── notificações ────────────────────────────────────────────── */
+function NotifIsland({ items, onClear }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <IslandHead title="Notificações" count={items.length} action={
+        <button type="button" onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-medium)', color: 'var(--accent)' }}>Limpar</button>
+      } />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, overflow: 'auto', minHeight: 0 }}>
+        {items.length === 0 && <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', color: 'var(--text-tertiary)' }}>Sem notificações.</div>}
+        {items.map((n, i) => (
+          <div key={i} style={{ ...islandCard, display: 'flex', gap: 8, padding: '7px 9px' }}>
+            <Icon name={n.icon || 'app'} size={15} color="var(--accent)" style={{ marginTop: 1, flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--text-tertiary)', flexShrink: 0 }}>{n.time}</span>
+              </span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── atalhos rápidos (favoritos) ─────────────────────────────── */
+function QuickIsland({ items, onOpen }) {
+  return (
+    <div>
+      <IslandHead title="Favoritos" />
+      <div style={{ display: 'flex', gap: 6 }}>
+        {items.slice(0, 5).map(s => (
+          <Tooltip key={s.id} label={s.name} placement="bottom">
+            <button type="button" onClick={() => onOpen(s)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--accent)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}>
+              <span style={{ display: 'inline-flex', width: 19, height: 19 }}><Icon name={s.type} size="100%" /></span>
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  OVERLAY_SEED, SearchIsland, GridIsland, MicIsland, DiscordIsland,
+  PerfIsland, NotifIsland, QuickIsland, IslandHead,
+});

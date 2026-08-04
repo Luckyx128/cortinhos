@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Cortinhos">
+  <defs>
+    <pattern id="c-pleat" width="28.16" height="128" patternUnits="userSpaceOnUse">
+      <rect width="14.08" height="128" fill="#3ea6ff"></rect>
+      <rect x="14.08" width="14.08" height="128" fill="#2f8fe0"></rect>
+    </pattern>
+    <clipPath id="c-round"><rect width="128" height="128" rx="28"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#c-round)">
+    <rect width="128" height="128" fill="url(#c-pleat)"></rect>
+    <rect width="128" height="128" fill="#ffffff" opacity="0.05"></rect>
+    <path d="M30.72 0 H97.28 V14.08 a21.76 21.76 0 0 1 -21.76 21.76 H52.48 a21.76 21.76 0 0 1 -21.76 -21.76 Z" fill="#14171c"></path>
+    <circle cx="53" cy="17.5" r="5.6" fill="#5cb4ff"></circle>
+    <circle cx="75" cy="17.5" r="5.6" fill="#ffffff" opacity="0.6"></circle>
+    <path d="M52.75 49.5L77.25 49.5L85.75 58L85.5 65.75L76.25 65.75L76 61.75L72.25 58L57.25 58.25L53.75 61.75L53.75 89.25L57.75 93L72.25 93L76 89.25L76 85.25L85.25 85L85.75 85.25L85.75 93L77.5 101.25L52.25 101.25L44 93L44 58L52 49.75L52.5 49.75Z" fill="#ffffff"></path>
+  </g>
+</svg>

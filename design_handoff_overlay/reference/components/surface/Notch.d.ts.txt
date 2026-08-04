@@ -1,0 +1,80 @@
+import React from 'react';
+
+export interface NotchQuickShortcut {
+  name: string;
+  type?: 'app' | 'folder' | 'url' | 'command';
+  onOpen?: () => void;
+}
+
+export interface NotchNotification {
+  /** Notification headline, e.g. "Discord". */
+  title: string;
+  /** One-line body. Truncates. */
+  body: string;
+  /** Short relative time, e.g. "agora", "2m". */
+  time: string;
+  /** Icon name for the source app. Default 'app'. */
+  icon?: string;
+}
+
+export interface NotchPerf {
+  /** CPU load 0–100. */
+  cpu: number;
+  /** GPU load 0–100. */
+  gpu: number;
+  /** Frames per second. */
+  fps: number;
+}
+
+export interface NotchStatus {
+  /** alert = transient message · progress = hairline bar · error = needs dismissal. */
+  kind: 'alert' | 'progress' | 'error';
+  /** Short label shown for alert/error. Not used by progress. */
+  label?: string;
+  /** 0–1, progress only. */
+  progress?: number;
+  /** Override the status glyph. */
+  icon?: string;
+}
+
+/**
+ * @startingPoint section="Cortinhos" subtitle="Floating notch — all states" viewport="440x400"
+ */
+export interface NotchProps {
+  micMuted?: boolean;
+  onToggleMic?: () => void;
+  discordApp?: string | null;
+  discordTracking?: boolean;
+  onToggleTracking?: () => void;
+  /** Up to 5 pinned shortcuts, shown as an icon row when expanded. */
+  quickShortcuts?: NotchQuickShortcut[];
+  onOpenLauncher?: () => void;
+  hotkeyLabel?: string;
+  /** Windows notifications surfaced in the expanded panel (unfiltered — every app that posts one). The count badges the compact pill. Up to 3 shown at a time. */
+  notifications?: NotchNotification[];
+  onClearNotifications?: () => void;
+  /** Live CPU/GPU/FPS module. Omit to hide it. */
+  perf?: NotchPerf | null;
+  /** Transient event overriding the compact pill. Priority error > alert > progress. */
+  status?: NotchStatus | null;
+  /** Called when the user clicks an error status to acknowledge it. */
+  onDismissStatus?: () => void;
+  /** Which top edge the notch is docked to. */
+  anchor?: 'top-left' | 'top-center' | 'top-right';
+  /** True while the user is repositioning it — lifts and scales. */
+  dragging?: boolean;
+  /** Compact pill width in px. Default 92. */
+  compactWidth?: number;
+  /** Controlled size state. Omit to let the notch manage itself. */
+  state?: 'compact' | 'peek' | 'expanded';
+  onStateChange?: (state: 'compact' | 'peek' | 'expanded') => void;
+  style?: React.CSSProperties;
+}
+
+/**
+ * Floating always-on-top notch surface (separate from the main window).
+ * Size states: compact → peek (hover) → expanded (click), light spring motion.
+ * Status states (alert / progress / error) ride on top of compact.
+ * Anchor it with position:fixed;top:0 and the matching horizontal offset.
+ */
+export function Notch(props: NotchProps): JSX.Element;

@@ -1,0 +1,27 @@
+<Window x:Class="Cortinho.Overlay.IslandWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Island"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        SizeToContent="Manual">
+    <Border x:Name="IslandRoot"
+            Background="{DynamicResource SurfaceOverlayOpaqueBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{DynamicResource RadiusLg}"
+            Padding="16"
+            RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="IslandTranslate" Y="0"/>
+        </Border.RenderTransform>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="14" Direction="270" Opacity="0.5"/>
+        </Border.Effect>
+        <ContentControl x:Name="ContentHost" Focusable="False"/>
+    </Border>
+</Window>

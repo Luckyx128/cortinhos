@@ -1,0 +1,28 @@
+<UserControl x:Class="Cortinho.Controls.ThemeToggleControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1" CornerRadius="{DynamicResource RadiusPill}" Padding="3">
+        <StackPanel Orientation="Horizontal">
+            <Border x:Name="LightBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusPill}"
+                    Background="Transparent" Cursor="Hand" MouseLeftButtonDown="LightButton_Click">
+                <Viewbox Width="15" Height="15">
+                    <Canvas Width="24" Height="24">
+                        <Path x:Name="SunIcon1" Data="M18 12a6 6 0 1 1-12 0a6 6 0 0 1 12 0"/>
+                        <Path x:Name="SunIcon2" Data="M12 1.25a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0V2a.75.75 0 0 1 .75-.75M1.25 12a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5H2a.75.75 0 0 1-.75-.75m19 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75M12 20.25a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1a.75.75 0 0 1 .75-.75"/>
+                        <Path x:Name="SunIcon3" Opacity="0.5" Data="M4.398 4.398a.75.75 0 0 1 1.061 0l.393.393a.75.75 0 0 1-1.06 1.06l-.394-.392a.75.75 0 0 1 0-1.06m15.202 0a.75.75 0 0 1 0 1.06l-.392.393a.75.75 0 0 1-1.06-1.06l.392-.393a.75.75 0 0 1 1.06 0m-1.453 13.748a.75.75 0 0 1 1.061 0l.393.393a.75.75 0 0 1-1.06 1.06l-.394-.392a.75.75 0 0 1 0-1.06m-12.295 0a.75.75 0 0 1 0 1.06l-.393.393a.75.75 0 1 1-1.06-1.06l.392-.393a.75.75 0 0 1 1.06 0"/>
+                    </Canvas>
+                </Viewbox>
+            </Border>
+            <Border x:Name="DarkBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusPill}"
+                    Background="Transparent" Cursor="Hand" Margin="2,0,0,0" MouseLeftButtonDown="DarkButton_Click">
+                <Viewbox Width="15" Height="15">
+                    <Canvas Width="24" Height="24">
+                        <Path x:Name="MoonIcon1" Opacity="0.5" Data="M22 12c0 5.523-4.477 10-10 10a10 10 0 0 1-3.321-.564A9 9 0 0 1 8 18a8.97 8.97 0 0 1 2.138-5.824A6.5 6.5 0 0 0 15.5 15a6.5 6.5 0 0 0 5.567-3.143c.24-.396.933-.32.933.143"/>
+                        <Path x:Name="MoonIcon2" Data="M2 12c0 4.359 2.789 8.066 6.679 9.435A9 9 0 0 1 8 18c0-2.221.805-4.254 2.138-5.824A6.47 6.47 0 0 1 9 8.5a6.5 6.5 0 0 1 3.143-5.567C12.54 2.693 12.463 2 12 2C6.477 2 2 6.477 2 12"/>
+                    </Canvas>
+                </Viewbox>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>

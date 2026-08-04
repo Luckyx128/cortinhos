@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Cortinhos">
+  <defs>
+    <pattern id="mn-pleat" width="28.16" height="128" patternUnits="userSpaceOnUse">
+      <rect width="14.08" height="128" fill="#3ea6ff"></rect>
+      <rect x="14.08" width="14.08" height="128" fill="#2f8fe0"></rect>
+    </pattern>
+    <clipPath id="mn-round"><rect width="128" height="128" rx="28"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#mn-round)">
+    <rect width="128" height="128" fill="url(#mn-pleat)"></rect>
+    <path d="M24 0 H104 V20 a26 26 0 0 1 -26 26 H50 a26 26 0 0 1 -26 -26 Z" fill="#14171c"></path>
+  </g>
+</svg>

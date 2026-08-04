@@ -1,0 +1,28 @@
+/* Cortinhos — spacing, radii, layout tokens. Base unit = 4px. */
+:root{
+  --space-0:0;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-10:40px;
+  --space-12:48px;
+
+  /* corner radii — matched to Windows 11 native geometry (decided with the user).
+     Windows uses ~8px on window corners and ~4px on controls; these follow the OS
+     rather than the friendlier-but-non-native 12/8 we started with. */
+  --radius-sm:4px;    /* inputs, small chips, kbd — Win11 control radius */
+  --radius-md:6px;    /* tiles, buttons, cards */
+  --radius-lg:8px;    /* window, dialogs, panels — Win11 window radius */
+  --radius-pill:999px;
+  --radius-notch:8px; /* notch bottom corners — Win11 flyout radius */
+
+  /* grid */
+  --grid-gap:14px;
+  --tile-min:150px;      /* dense Steam-like grid min column */
+  --card-pad:16px;
+  --window-pad:24px;
+}

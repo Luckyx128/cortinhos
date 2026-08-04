@@ -1,0 +1,43 @@
+<UserControl x:Class="Cortinho.Controls.FormTextField"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock x:Name="LabelBlock" FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+        <Border x:Name="Box" Height="36" CornerRadius="{DynamicResource RadiusSm}" Background="{DynamicResource Surface2Brush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+            <Border.Style>
+                <!-- Disabled é par de tokens, não Opacity (TOKENS-WPF.md §Plataforma) -->
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Background" Value="{DynamicResource SurfaceDisabledBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource BorderDisabledBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid Margin="12,0,10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ContentPresenter x:Name="IconSlot" Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center"/>
+
+                <Grid Grid.Column="1">
+                    <TextBlock x:Name="PlaceholderText" Foreground="{DynamicResource TextTertiaryBrush}"
+                               FontFamily="{DynamicResource FontBody}" FontSize="13" IsHitTestVisible="False"
+                               VerticalAlignment="Center"/>
+                    <TextBox x:Name="InnerBox" Style="{DynamicResource FormTextBoxStyle}"
+                             GotFocus="InnerBox_GotFocus" LostFocus="InnerBox_LostFocus" TextChanged="InnerBox_TextChanged"/>
+                </Grid>
+
+                <ContentPresenter x:Name="TrailingSlot" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+        <TextBlock x:Name="ErrorBlock" FontFamily="{DynamicResource FontBody}" FontSize="11"
+                   Foreground="{DynamicResource DangerBrush}" Margin="0,6,0,0" Visibility="Collapsed" TextWrapping="Wrap"/>
+    </StackPanel>
+</UserControl>

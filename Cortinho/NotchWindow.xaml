@@ -210,52 +210,52 @@
 
             <StackPanel x:Name="ExpandedContent" Visibility="Collapsed" Margin="12">
 
-                <StackPanel x:Name="TopStatusRow" Orientation="Horizontal" Margin="0,0,0,10">
-                    <Border Background="{DynamicResource NotchFillBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusSm}" Padding="10,0" Height="30">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel x:Name="TopStatusRow" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Border Background="{DynamicResource NotchFillBrush}"
+            CornerRadius="{DynamicResource RadiusSm}" Padding="10,0" Height="30">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <Viewbox Width="16" Height="16">
                                 <Grid Width="24" Height="24">
                                     <Canvas x:Name="TopMicOnIcon" Width="24" Height="24">
                                         <Path Data="M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z"
-                                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
+                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
                                         <Path Data="M17 7h-3m3 4h-3m6 0a8 8 0 0 1-8 8m0 0a8 8 0 0 1-8-8m8 8v3m0 0h3m-3 0H9"
-                                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                     </Canvas>
                                     <Canvas x:Name="TopMicOffIcon" Width="24" Height="24" Visibility="Collapsed">
                                         <Path Data="m2 2l20 20M4 11a8 8 0 0 0 8 8m0 0c1.954 0 3.745-.7 5.135-1.865M12 19v3m0 0h3m-3 0H9m11-11c0 1.651-.5 3.186-1.358 4.46m-1.634-8.464c0-2.761-2.239-4.98-5-4.98c-1.869 0-3.47.965-4.328 2.484m9.328 2.496l-3.028.012m3.028-.012v4.008m-10-4.008v4.02a5 5 0 0 0 5 5c1.135 0 2.165-.39 3.004-1.028m1.435-1.728c.358-.69.56-1.413.56-2.244v-.012m-2.824 0h2.825"
-                                              Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.5"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                              Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                     </Canvas>
                                 </Grid>
                             </Viewbox>
                             <TextBlock x:Name="TopMicCaption" Text="Mic ativo"
-                                       FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="Medium"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       VerticalAlignment="Center" Margin="6,0,0,0"/>
+                       FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="Medium"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
                     </Border>
 
                     <Border x:Name="TopDiscordPill" Visibility="Collapsed" Margin="6,0,0,0"
-                            Background="{DynamicResource NotchFillBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusSm}" Padding="10,0" Height="30">
+            Background="{DynamicResource NotchFillBrush}"
+            CornerRadius="{DynamicResource RadiusSm}" Padding="10,0" Height="30">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Viewbox Width="16" Height="16">
                                 <Grid Width="24" Height="24">
                                     <Canvas Width="24" Height="24">
                                         <Path Opacity="0.5"
-                                              Data="M10.667 6.134l-.502-.355A4.24 4.24 0 0 0 7.715 5h-.612c-.405 0-.813.025-1.194.16c-2.383.846-4.022 3.935-3.903 10.943c.024 1.412.354 2.972 1.628 3.581A3.2 3.2 0 0 0 5.027 20a2.74 2.74 0 0 0 1.53-.437c.41-.268.77-.616 1.13-.964c.444-.43.888-.86 1.424-1.138a4.1 4.1 0 0 1 1.89-.461H13c.658 0 1.306.158 1.89.46c.536.279.98.709 1.425 1.139c.36.348.72.696 1.128.964c.39.256.895.437 1.531.437a3.2 3.2 0 0 0 1.393-.316c1.274-.609 1.604-2.17 1.628-3.581c.119-7.008-1.52-10.097-3.903-10.942C17.71 5.025 17.3 5 16.897 5h-.612a4.24 4.24 0 0 0-2.45.78l-.502.354a2.31 2.31 0 0 1-2.666 0"
-                                              Fill="{DynamicResource AccentBrush}"/>
+                              Data="M10.667 6.134l-.502-.355A4.24 4.24 0 0 0 7.715 5h-.612c-.405 0-.813.025-1.194.16c-2.383.846-4.022 3.935-3.903 10.943c.024 1.412.354 2.972 1.628 3.581A3.2 3.2 0 0 0 5.027 20a2.74 2.74 0 0 0 1.53-.437c.41-.268.77-.616 1.13-.964c.444-.43.888-.86 1.424-1.138a4.1 4.1 0 0 1 1.89-.461H13c.658 0 1.306.158 1.89.46c.536.279.98.709 1.425 1.139c.36.348.72.696 1.128.964c.39.256.895.437 1.531.437a3.2 3.2 0 0 0 1.393-.316c1.274-.609 1.604-2.17 1.628-3.581c.119-7.008-1.52-10.097-3.903-10.942C17.71 5.025 17.3 5 16.897 5h-.612a4.24 4.24 0 0 0-2.45.78l-.502.354a2.31 2.31 0 0 1-2.666 0"
+                              Fill="{DynamicResource AccentBrush}"/>
                                         <Path Data="M16.75 9a.75.75 0 1 1 0 1.5a.75.75 0 0 1 0-1.5m-9.25.25a.75.75 0 0 1 .75.75v.75H9a.75.75 0 0 1 0 1.5h-.75V13a.75.75 0 0 1-1.5 0v-.75H6a.75.75 0 0 1 0-1.5h.75V10a.75.75 0 0 1 .75-.75m11.5 2a.75.75 0 1 1-1.5 0a.75.75 0 0 1 1.5 0m-3.75.75a.75.75 0 1 0 0-1.5a.75.75 0 0 0 0 1.5m2.25.75a.75.75 0 1 0-1.5 0a.75.75 0 0 0 1.5 0"
-                                              Fill="{DynamicResource AccentBrush}"/>
+                              Fill="{DynamicResource AccentBrush}"/>
                                     </Canvas>
                                 </Grid>
                             </Viewbox>
                             <TextBlock x:Name="TopDiscordCaption" Text="Discord"
-                                       FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="Medium"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       VerticalAlignment="Center" Margin="6,0,0,0"/>
+                       FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="Medium"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

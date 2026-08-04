@@ -1,0 +1,80 @@
+/* Cortinhos — color tokens
+   Dark theme is the product default (:root). Light theme is the secondary
+   surface, activated with [data-theme="light"] on any ancestor. */
+:root{
+  /* base surfaces — deep petrol-graphite, never pure black */
+  --bg-base:#14171c;
+  --bg-window:#171b21;          /* main window fill (Mica sits over this) */
+  --surface-1:#1c2129;          /* card / tile resting */
+  --surface-2:#232a33;          /* card hover, inputs */
+  --surface-3:#2b333d;          /* pressed / raised menu */
+  --surface-overlay:rgba(28,33,41,.72); /* acrylic panels over content */
+
+  /* borders */
+  --border-subtle:rgba(255,255,255,.08);
+  --border-strong:rgba(255,255,255,.15);
+  --border-focus:var(--accent);
+
+  /* text */
+  --text-primary:#eceef2;
+  --text-secondary:#9aa3ad;
+  --text-tertiary:#6b7480;
+  --text-on-accent:#0a1119;
+
+  /* single vibrant accent — used sparingly for primary actions only.
+     --system-accent is set at runtime by the WPF host from the user's Windows
+     accent colour (UISettings.GetColorValue(UIColorType.Accent)); the hex here
+     is the brand fallback when the host doesn't provide one, e.g. in previews.
+     Hover/press/soft variants derive from whatever wins, so honouring the
+     system accent needs exactly one variable set. */
+  --brand-accent:#3ea6ff;
+  --accent:var(--system-accent,var(--brand-accent));
+  --accent-hover:color-mix(in oklch,var(--accent) 82%,white);
+  --accent-press:color-mix(in oklch,var(--accent) 86%,black);
+  --accent-soft:color-mix(in oklch,var(--accent) 14%,transparent);
+  --accent-ring:color-mix(in oklch,var(--accent) 45%,transparent);
+
+  /* semantic states */
+  --success:#22c55e;
+  --success-soft:rgba(34,197,94,.15);
+  --danger:#f0503c;             /* mic-muted / destructive */
+  --danger-soft:rgba(240,80,60,.15);
+  --warning:#f0a92c;
+
+  /* overlays */
+  --hover-overlay:rgba(255,255,255,.06);
+  --press-overlay:rgba(0,0,0,.18);
+  --scrim:rgba(6,8,11,.6);      /* modal backdrop */
+}
+
+[data-theme="light"]{
+  --bg-base:#eef0f3;
+  --bg-window:#f5f6f8;
+  --surface-1:#ffffff;
+  --surface-2:#f1f3f6;
+  --surface-3:#e7eaee;
+  --surface-overlay:rgba(255,255,255,.78);
+
+  --border-subtle:rgba(15,20,28,.10);
+  --border-strong:rgba(15,20,28,.18);
+
+  --text-primary:#151a21;
+  --text-secondary:#586170;
+  --text-tertiary:#8a929e;
+  --text-on-accent:#ffffff;
+
+  /* Light theme darkens the brand fallback for contrast on white; the system
+     accent, when present, still wins. Windows itself supplies a light-theme
+     variant, so the host may set --system-accent per theme. */
+  --brand-accent:#1f7fe0;
+
+  --success:#15a349;
+  --success-soft:rgba(21,163,73,.12);
+  --danger:#d63a26;
+  --danger-soft:rgba(214,58,38,.12);
+  --warning:#c9820c;
+
+  --hover-overlay:rgba(15,20,28,.05);
+  --press-overlay:rgba(15,20,28,.09);
+  --scrim:rgba(20,25,32,.35);
+}

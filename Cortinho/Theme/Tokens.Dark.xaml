@@ -1,18 +1,30 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Cores — valores de design_handoff_notch/TOKENS-WPF.md, dark (único tema implementado) -->
+    <!-- Cores — dark (padrão). Valores de design_handoff_notch/TOKENS-WPF.md. Ver Tokens.Light.xaml pro
+         par claro e Services/ThemeService.cs pra troca em runtime (fase 6). -->
+    <SolidColorBrush x:Key="Surface1Brush" Color="#FF1C2129"/>
     <SolidColorBrush x:Key="Surface2Brush" Color="#FF232A33"/>
     <SolidColorBrush x:Key="Surface3Brush" Color="#FF2B333D"/>
     <SolidColorBrush x:Key="BorderSubtleBrush" Color="#14FFFFFF"/>
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#26FFFFFF"/>
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFECEEF2"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF9AA3AD"/>
     <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF6B7480"/>
     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FF0A1119"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#FF22C55E"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#FFF0503C"/>
     <SolidColorBrush x:Key="DangerSoftBrush" Color="#26F0503C"/>
     <SolidColorBrush x:Key="HoverOverlayBrush" Color="#0FFFFFFF"/>
     <SolidColorBrush x:Key="PressOverlayBrush" Color="#1FFFFFFF"/>
+    <SolidColorBrush x:Key="BgBaseBrush" Color="#FF14171C"/>
+    <SolidColorBrush x:Key="BgWindowBrush" Color="#FF171B21"/>
+    <SolidColorBrush x:Key="TaskbarHoverBrush" Color="#14FFFFFF"/>
+
+    <!-- Estados disabled — par de tokens, não Opacity (TOKENS-WPF.md §Plataforma) -->
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#FF5B636D"/>
+    <SolidColorBrush x:Key="SurfaceDisabledBrush" Color="#0AFFFFFF"/>
+    <SolidColorBrush x:Key="BorderDisabledBrush" Color="#0FFFFFFF"/>
 
     <!--
         Fill do notch — divergência consciente registrada em PHASE-1-NOTCH.md/IMPLEMENTATION-STATUS-NOTCH.md:
@@ -33,23 +45,19 @@
     <Color x:Key="AccentHoverColor">#FF6EBEFF</Color>
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentHoverColor}"/>
 
-    <!-- Raios -->
-    <CornerRadius x:Key="RadiusSm">4</CornerRadius>
-    <!-- Spec pede "0 0 8 8"; implementado como "0 0 6 6" (bate com o checklist de aceite da seção 9, que diverge do corpo da seção 3 do próprio spec). -->
-    <CornerRadius x:Key="RadiusNotch">0,0,6,6</CornerRadius>
+    <!-- Overlay (design_handoff_overlay, fase 1) — fill das ilhas. surface-overlay é semi-transparente,
+         pensado pra ficar sobre acrylic (fase 2); SurfaceOverlayOpaqueBrush é a divergência aceita do
+         próprio README enquanto não há acrylic por janela (PHASE-OVERLAY.md §2/§4). -->
+    <SolidColorBrush x:Key="SurfaceOverlayBrush" Color="#B81C2129"/>
+    <SolidColorBrush x:Key="SurfaceOverlayOpaqueBrush" Color="#FF1E232B"/>
 
-    <!-- Tipografia — famílias custom embutidas em Fonts/ (design_handoff_notch/reference/assets/fonts).
-         Chakra Petch e IBM Plex Mono têm faces estáticas por peso (não sintetizar peso via FontWeight nelas,
-         referenciar a face certa) — ver aviso em TOKENS-WPF.md. IBM Plex Sans é variável, aceita FontWeight normal. -->
-    <!-- "Chakra Petch" tem Regular+Bold ligados na mesma família (use FontWeight="Bold" pra pegar o Bold de verdade); Medium/SemiBold são famílias próprias. -->
-    <FontFamily x:Key="FontDisplay">./Fonts/#Chakra Petch</FontFamily>
-    <FontFamily x:Key="FontDisplayMedium">./Fonts/#Chakra Petch Medium</FontFamily>
-    <FontFamily x:Key="FontDisplaySemiBold">./Fonts/#Chakra Petch SemiBold</FontFamily>
+    <!-- material-mica não tem hex definido em TOKENS-WPF.md (é o material de plataforma, não uma cor da tabela) —
+         aproximação: bg-window a ~60% opaco, usado só como fallback visual até a Mica real (DwmSetWindowAttribute)
+         cobrir por trás; ver MainWindow.xaml.cs ApplyMicaBackdrop(). -->
+    <SolidColorBrush x:Key="MaterialMicaBrush" Color="#99171B21"/>
 
-    <FontFamily x:Key="FontBody">./Fonts/#IBM Plex Sans</FontFamily>
-
-    <FontFamily x:Key="FontMono">./Fonts/#IBM Plex Mono</FontFamily>
-    <FontFamily x:Key="FontMonoMedium">./Fonts/#IBM Plex Mono Medium</FontFamily>
-    <FontFamily x:Key="FontMonoSemiBold">./Fonts/#IBM Plex Mono SemiBold</FontFamily>
+    <!-- Caption buttons — hover/press (close fica em Tokens.Shared.xaml, cor fixa em qualquer tema) -->
+    <SolidColorBrush x:Key="CaptionHoverBrush" Color="#0FFFFFFF"/>
+    <SolidColorBrush x:Key="CaptionPressBrush" Color="#17FFFFFF"/>
 
 </ResourceDictionary>

@@ -1,0 +1,122 @@
+/* Nota de viabilidade técnica — overlay em tela cheia no WPF/.NET 8.
+   Conteúdo de decisão, não UI de produto: por isso o visual é de documento. */
+const FIcon = window.CortinhosDesignSystem_c0acc5.Icon;
+
+function FeasibilityPanel({ onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(6,8,11,.7)', backdropFilter: 'blur(3px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 'min(780px, 100%)', maxHeight: '100%', overflow: 'auto',
+        background: 'var(--bg-window)', border: '1px solid var(--border-strong)',
+        borderRadius: 'var(--radius-lg)', boxShadow: 'var(--elev-4)', padding: '28px 32px 32px',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 'var(--tracking-caps)', color: 'var(--text-tertiary)' }}>Nota técnica</div>
+            <h2 style={{ margin: '4px 0 0', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, color: 'var(--text-primary)' }}>Overlay em tela cheia — dá pra fazer?</h2>
+          </div>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}><FIcon name="x" size={22} /></button>
+        </div>
+
+        <Verdict />
+
+        <Sec n="1" t="A janela do overlay">
+          <p>Uma janela sem chrome do tamanho do monitor: <M>WindowStyle=None</M>, <M>AllowsTransparency=True</M>, <M>Topmost=True</M>, <M>ShowInTaskbar=False</M>. Funciona, mas <b>AllowsTransparency força renderização por software</b> em WPF — em tela cheia isso custa caro e some com a aceleração.</p>
+          <p>Caminho recomendado: janela Win32 <M>WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE</M> com composição por <M>DirectComposition</M> / <M>HwndHost</M>, mantendo o conteúdo WPF acelerado. Mais trabalho de plumbing, mas é o que sustenta 60fps sobre um jogo.</p>
+        </Sec>
+
+        <Sec n="2" t="Clicável só nas ilhas" tone="watch">
+          <p><M>WS_EX_TRANSPARENT</M> é tudo-ou-nada: liga ou desliga o hit-test da <i>janela inteira</i>. Duas rotas pra “só as ilhas capturam clique”:</p>
+          <ul>
+            <li><b>Hook de mouse global</b> (<M>SetWindowsHookEx(WH_MOUSE_LL)</M>): a cada movimento, testa se o cursor está dentro de alguma ilha e liga/desliga <M>WS_EX_TRANSPARENT</M>. Barato, é o que a maioria dos overlays faz. Cuidado: hook de baixo nível roda na thread de UI — qualquer travada sua vira lag de mouse no sistema inteiro.</li>
+            <li><b>Região da janela</b> (<M>SetWindowRgn</M> com a união dos retângulos das ilhas): preciso e sem hook, mas recalcular a cada frame de drag é pesado e a região é hard-edged — mata sombra, blur e canto arredondado nas bordas.</li>
+          </ul>
+          <p><b>Recomendo o hook</b>, com o bounding box das ilhas em cache e recalculado só quando o layout muda.</p>
+        </Sec>
+
+        <Sec n="3" t="O escurecimento é o nó da ideia" tone="watch">
+          <p>Um scrim de tela cheia é pixel pintado: a janela precisa cobrir a tela toda. Isso não impede o click-through (o hook decide por posição, não por pixel), mas significa que <b>o overlay sempre desenha a tela inteira</b> — não dá pra “só desenhar as ilhas” quando há scrim.</p>
+          <p>Consequências práticas: composição de tela cheia a cada frame sobre o jogo, e <M>backdrop blur</M> global inviável (o DWM não expõe blur barato do que está atrás em fullscreen; <M>DwmEnableBlurBehindWindow</M> está deprecado).</p>
+          <p><b>Por isso o desenho aqui usa scrim liso + acrylic só nas ilhas</b> — áreas pequenas, custo aceitável. Se o custo pesar, a opção <i>Halo local</i> resolve sem scrim algum.</p>
+        </Sec>
+
+        <Sec n="4" t="Fullscreen exclusivo: não" tone="no">
+          <p>Overlay por janela topmost <b>não aparece</b> sobre DirectX em fullscreen exclusivo. Aparece normalmente em <b>borderless windowed</b> e em fullscreen com as “otimizações para jogos em janela” do Windows 10/11 — que hoje é o caso da grande maioria dos jogos.</p>
+          <p>Cobrir exclusivo exigiria hook de swapchain (<M>IDXGISwapChain::Present</M>), o mesmo território de Steam/Discord overlay. <b>Anti-cheat (EAC, BattlEye) trata isso como injeção</b> — risco real de ban pro usuário. Recomendação: <b>não fazer</b>, e dizer isso na tela de config.</p>
+        </Sec>
+
+        <Sec n="5" t="Teclado e foco" tone="watch">
+          <p><M>WS_EX_NOACTIVATE</M> mantém o jogo em foco — bom pro overlay não roubar input. Mas aí a <b>busca não recebe teclas</b>. Solução (a mesma do Discord): ao focar o campo de busca, chamar <M>SetForegroundWindow</M> no overlay e devolver o foco ao jogo quando fechar. O hotkey global (<M>RegisterHotKey</M>, já existe no app) continua funcionando dos dois lados.</p>
+        </Sec>
+
+        <Sec n="6" t="Layout arrastável e salvo" tone="ok">
+          <p>Trivial. Posições em % do monitor escolhido, num <M>overlay-layout.json</M> ao lado do <M>shortcuts.json</M>. Guardar em % (não px) faz o arranjo sobreviver a troca de resolução e a monitores diferentes.</p>
+        </Sec>
+
+        <Sec n="7" t="Perf module" tone="watch">
+          <p>Continua sem fonte definida. CPU/GPU via <b>PDH counters</b> ou <b>LibreHardwareMonitor</b> é seguro. <b>FPS não</b>: medir FPS exige hook de Present — mesmo problema de anti-cheat do item 4. Sugestão: cortar FPS da ilha, ou mostrar só quando o usuário instalar um provedor externo.</p>
+        </Sec>
+
+        <Sec n="8" t="O que isso muda no design system" tone="watch">
+          <ul>
+            <li><b>Mica sai de cena.</b> Se a janela some, o material de superfície longa-duração perde uso — o sistema passa a ter só acrylic. Vale registrar isso em <M>tokens/platform.css</M>.</li>
+            <li><b>Chrome nativo some junto.</b> Caption buttons, barra de título, abas — todo o vocabulário “app do Windows” deixa de existir. O produto vira 100% OS-furniture.</li>
+            <li><b>Perde a casa das configs.</b> Hoje a aba Config mora na janela. No overlay ela precisa virar ilha ou flyout — a ilha de engrenagem aqui é um marcador, não uma solução.</li>
+            <li><b>Notch e overlay se sobrepõem.</b> Se o notch expandido já traz mic, notificações, perf e Discord, o overlay em modo “Separado” duplica quatro superfícies. Escolher <i>Ilha-mãe</i> resolve, mas então o overlay é essencialmente “notch expandido + grid”.</li>
+          </ul>
+        </Sec>
+
+        <Sec n="9" t="Recomendação" tone="ok">
+          <p><b>Viável, com dois cortes.</b> Fazer: janela layered em tela cheia, click-through por hook, scrim liso, acrylic só nas ilhas, layout arrastável em %, borderless-only. Não fazer: hook de swapchain (fullscreen exclusivo e FPS).</p>
+          <p>Sobre a substituição total da janela: o overlay resolve muito bem o caso <i>“estou no jogo, quero abrir algo rápido”</i>. Ele resolve mal <i>“quero cadastrar 20 atalhos, editar hotkeys, mexer nas configs”</i>. Sugiro <b>manter a janela pra gerenciar</b> e deixar o overlay ser a cara do uso diário — mas isso é decisão sua, e o protótipo está pronto pros dois caminhos.</p>
+        </Sec>
+      </div>
+    </div>
+  );
+}
+
+function Verdict() {
+  const items = [
+    ['ok', 'Ilhas flutuantes + layout arrastável', 'Sem obstáculo.'],
+    ['ok', 'Escurecer a tela', 'Custa composição de tela cheia, mas funciona.'],
+    ['watch', 'Clique só nas ilhas', 'Precisa de hook de mouse global.'],
+    ['watch', 'Blur do que está atrás', 'Só nas ilhas — global é inviável.'],
+    ['no', 'Sobre fullscreen exclusivo', 'Exigiria injeção. Risco de anti-cheat.'],
+    ['no', 'FPS no módulo de perf', 'Mesmo problema. CPU/GPU seguem OK.'],
+  ];
+  const tone = { ok: 'var(--success)', watch: 'var(--warning)', no: 'var(--danger)' };
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 26 }}>
+      {items.map(([t, k, v]) => (
+        <div key={k} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: tone[t], marginTop: 5, flexShrink: 0 }} />
+          <span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)' }}>{k}</span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)', marginTop: 2 }}>{v}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Sec({ n, t, tone, children }) {
+  const c = tone === 'no' ? 'var(--danger)' : tone === 'watch' ? 'var(--warning)' : tone === 'ok' ? 'var(--success)' : 'var(--accent)';
+  return (
+    <section style={{ marginBottom: 22 }}>
+      <h3 style={{ display: 'flex', alignItems: 'baseline', gap: 9, margin: '0 0 8px', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: 'var(--text-primary)' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: c }}>{n}</span>{t}
+      </h3>
+      <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', lineHeight: 1.62, color: 'var(--text-secondary)', textWrap: 'pretty' }}>{children}</div>
+    </section>
+  );
+}
+
+function M({ children }) {
+  return <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '1px 5px' }}>{children}</code>;
+}
+
+window.FeasibilityPanel = FeasibilityPanel;

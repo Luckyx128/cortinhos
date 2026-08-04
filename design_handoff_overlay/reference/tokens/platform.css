@@ -1,0 +1,108 @@
+/* Cortinhos — native Windows platform tokens.
+   These map the design system onto real Win32/WPF behaviours that a web-only
+   system never has to think about: window materials, window focus loss,
+   platform focus visuals, and the OS motion setting. */
+:root{
+  /* ── Materials ──────────────────────────────────────────────
+     Windows 11 has two distinct backdrop materials. Do not mix them up:
+       Mica    — long-lived surfaces (the main window). Tints the desktop
+                 wallpaper, barely animates, cheap. Opaque-feeling.
+       Acrylic — transient surfaces (flyouts, context menus, the expanded
+                 notch). Blurs what is *behind the app*, stronger, costlier.
+     In WPF set these via WindowChrome / SystemBackdropType; the values here
+     are the web approximations used by this design system's previews. */
+  --material-mica:var(--bg-window);
+  --material-mica-alt:var(--bg-base);          /* Mica Alt — tabbed/darker shells */
+  --material-acrylic:var(--surface-overlay);
+  --material-acrylic-blur:blur(24px) saturate(1.4);  /* @kind other */
+  --material-acrylic-thin:blur(8px);                /* @kind other */
+
+  /* ── Window focus ───────────────────────────────────────────
+     Windows dims a window's chrome when it loses focus. Apply
+     --window-inactive-opacity to the title bar contents (not the whole
+     window) and swap the border. */
+  --window-border-active:var(--border-strong);
+  --window-border-inactive:var(--border-subtle);
+  --window-inactive-opacity:.62;  /* @kind other */
+
+  /* ── Focus visuals ──────────────────────────────────────────
+     Fluent's keyboard focus rect is a two-tone stroke so it survives any
+     background: a high-contrast outer ring plus a contrasting inner hairline.
+     Use --focus-native for keyboard focus; the softer --ring (elevation.css)
+     is for pointer/text-input focus only.
+     Critical for Cortinhos: the launcher is opened by a global hotkey, so most
+     sessions are keyboard-only. Every tile, button and field must show this. */
+  --focus-outer:#ffffff;
+  --focus-inner:#000000;
+  --focus-native:0 0 0 2px var(--focus-outer),0 0 0 3px var(--focus-inner);
+
+  /* ── Disabled ───────────────────────────────────────────────
+     Windows uses a dedicated disabled fill/text pair rather than plain
+     opacity, so disabled controls stay legible over any material. */
+  --text-disabled:#5b636d;
+  --surface-disabled:rgba(255,255,255,.04);
+  --border-disabled:rgba(255,255,255,.06);
+
+  /* ── Tray ───────────────────────────────────────────────────
+     Windows tray icons are 16px and read as a silhouette. Use
+     assets/logo-mini.svg (no monogram) — the "C" mushes at this size. */
+  --tray-icon-size:16px;
+
+  /* ── Taskbar ────────────────────────────────────────────────
+     The notch borrows the Windows 11 taskbar's exact visual language, so it
+     reads as part of the OS rather than as a third-party overlay. Measured
+     from the real taskbar at 100% DPI. */
+  --taskbar-height:48px;
+  --taskbar-tint:rgba(32,32,32,.78);      /* dark taskbar fill over acrylic */
+  /* The taskbar's faint edge line sits on the side facing the content. The
+     notch hangs from the top, so its exposed edge is the BOTTOM — this is
+     applied as an inset bottom hairline, not a top one. */
+  --taskbar-hairline:rgba(255,255,255,.07);
+  --taskbar-slot:40px;                     /* icon hit target (square) */
+  --taskbar-icon:22px;                     /* glyph size inside the slot — Slot reads this */
+  --taskbar-gap:4px;                       /* between slots */
+  --taskbar-slot-radius:4px;               /* hover/active highlight radius */
+  --taskbar-hover:rgba(255,255,255,.08);
+  --taskbar-active:rgba(255,255,255,.12);   /* pressed wash, as the real taskbar has */
+  --taskbar-indicator-w:16px;              /* running-app underline, idle */
+  --taskbar-indicator-w-active:20px;       /* focused app — wider */
+  --taskbar-indicator-h:3px;
+
+  /* ── Caption buttons ────────────────────────────────────────
+     Windows 11 title-bar buttons are 46×32 rectangles with NO corner radius —
+     they bleed into the window's corner. Close is the only one that takes a
+     colour on hover, and it is a fixed system red, not our --danger. */
+  --caption-btn-w:46px;
+  --caption-btn-h:32px;
+  --caption-hover:rgba(255,255,255,.06);
+  --caption-press:rgba(255,255,255,.09);
+  --caption-close-hover:#c42b1c;
+  --caption-close-press:#b2231a;
+}
+
+[data-theme="light"]{
+  --taskbar-tint:rgba(243,243,243,.82);
+  --caption-hover:rgba(15,20,28,.06);
+  --caption-press:rgba(15,20,28,.09);
+  --taskbar-hairline:rgba(15,20,28,.08);
+  --taskbar-hover:rgba(15,20,28,.06);
+  --taskbar-active:rgba(15,20,28,.10);
+  --focus-outer:#000000;
+  --focus-inner:#ffffff;
+  --text-disabled:#9aa2ac;
+  --surface-disabled:rgba(15,20,28,.04);
+  --border-disabled:rgba(15,20,28,.07);
+}
+
+/* ── OS motion setting ────────────────────────────────────────
+   Windows "Show animations in Windows" off → honour it. The notch is the
+   biggest offender here: its spring expansion must become an instant state
+   change, not a fast one. */
+@media (prefers-reduced-motion:reduce){
+  :root{
+    --dur-fast:1ms;              /* @kind other */
+    --dur-med:1ms;               /* @kind other */
+    --ease-spring:linear;        /* @kind other */
+    --ease-out:linear;           /* @kind other */
+  }
+}

@@ -66,7 +66,8 @@ namespace Cortinho
         public NotchWindow()
         {
             InitializeComponent();
-            Top = SystemParameters.WorkArea.Top;
+            LoadPlacementSettings();
+            Top = GetTargetWorkArea().Top;
 
             UpdateMicIcon();
             _ = InitializeNotificationsAsync();
@@ -291,7 +292,7 @@ namespace Cortinho
             ShortcutsPanel.Visibility = Visibility.Visible;
             ShortcutsItems.ItemsSource = pinned.Select(s =>
             {
-                var (l1, l1op, l2, l2op) = GetShortcutIconLayers(s.Type);
+                var (l1, l1op, l2, l2op) = ShortcutIconProvider.GetIconLayers(s.Type);
                 return new ShortcutDisplayItem
                 {
                     Name = s.Name,
@@ -303,25 +304,6 @@ namespace Cortinho
                 };
             }).ToList();
         }
-
-        // Ícones duotone reais de design_handoff_notch (assets/icons-export/*.svg) — 2 camadas por ícone
-        // (uma em opacidade cheia, outra em .5), na mesma ordem de pintura do SVG original.
-        private static (string L1, double L1Op, string L2, double L2Op) GetShortcutIconLayers(ShortcutType type) => type switch
-        {
-            ShortcutType.Application => (
-                "M2 6.21c0-1.984 0-2.977.659-3.593S4.379 2 6.5 2s3.182 0 3.841.617C11 3.233 11 4.226 11 6.21v11.58c0 1.984 0 2.977-.659 3.593S8.621 22 6.5 22s-3.182 0-3.841-.617C2 20.767 2 19.774 2 17.79z", 0.5,
-                "M13 15.4c0-2.074 0-3.111.659-3.756S15.379 11 17.5 11s3.182 0 3.841.644C22 12.29 22 13.326 22 15.4v2.2c0 2.074 0 3.111-.659 3.756S19.621 22 17.5 22s-3.182 0-3.841-.644C13 20.71 13 19.674 13 17.6zm0-9.9c0-1.087 0-1.63.171-2.06a2.3 2.3 0 0 1 1.218-1.262C14.802 2 15.327 2 16.375 2h2.25c1.048 0 1.573 0 1.986.178c.551.236.99.69 1.218 1.262c.171.43.171.973.171 2.06s0 1.63-.171 2.06a2.3 2.3 0 0 1-1.218 1.262C20.198 9 19.673 9 18.625 9h-2.25c-1.048 0-1.573 0-1.986-.178a2.3 2.3 0 0 1-1.218-1.262C13 7.13 13 6.587 13 5.5", 1),
-            ShortcutType.Folder => (
-                "M22 14v-2.202c0-2.632 0-3.949-.77-4.804a3 3 0 0 0-.224-.225C20.151 6 18.834 6 16.202 6h-.374c-1.153 0-1.73 0-2.268-.153a4 4 0 0 1-.848-.352C12.224 5.224 11.816 4.815 11 4l-.55-.55c-.274-.274-.41-.41-.554-.53a4 4 0 0 0-2.18-.903C7.53 2 7.336 2 6.95 2c-.883 0-1.324 0-1.692.07A4 4 0 0 0 2.07 5.257C2 5.626 2 6.068 2 6.95V14c0 3.771 0 5.657 1.172 6.828S6.229 22 10 22h4c3.771 0 5.657 0 6.828-1.172S22 17.771 22 14", 0.5,
-                "M12.25 10a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75", 1),
-            ShortcutType.Url => (
-                "M8 2.25A6.75 6.75 0 0 0 2.969 13.5a.75.75 0 0 0 1.118-1A5.25 5.25 0 0 1 8 3.75h4a5.25 5.25 0 1 1 0 10.5h-2a.75.75 0 0 0 0 1.5h2a6.75 6.75 0 0 0 0-13.5z", 1,
-                "M6.75 15c0-2.9 2.35-5.25 5.25-5.25h2a.75.75 0 0 0 0-1.5h-2a6.75 6.75 0 0 0 0 13.5h4a6.75 6.75 0 0 0 5.031-11.25a.75.75 0 0 0-1.118 1A5.25 5.25 0 0 1 16 20.25h-4A5.25 5.25 0 0 1 6.75 15", 0.5),
-            ShortcutType.Command => (
-                "M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2s7.071 0 8.535 1.464C22 4.93 22 7.286 22 12s0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12", 0.5,
-                "M13.488 6.446a.75.75 0 0 1 .53.918l-2.588 9.66a.75.75 0 0 1-1.449-.389l2.589-9.659a.75.75 0 0 1 .918-.53M14.97 8.47a.75.75 0 0 1 1.06 0l.209.208c.635.635 1.165 1.165 1.529 1.642c.384.504.654 1.036.654 1.68s-.27 1.176-.654 1.68c-.364.477-.894 1.007-1.53 1.642l-.208.208a.75.75 0 1 1-1.06-1.06l.171-.172c.682-.682 1.139-1.14 1.434-1.528c.283-.37.347-.586.347-.77s-.064-.4-.347-.77c-.295-.387-.752-.846-1.434-1.528l-.171-.172a.75.75 0 0 1 0-1.06m-7 0a.75.75 0 0 1 1.06 1.06l-.171.172c-.682.682-1.138 1.14-1.434 1.528c-.283.37-.346.586-.346.77s.063.4.346.77c.296.387.752.846 1.434 1.528l.172.172a.75.75 0 1 1-1.061 1.06l-.208-.208c-.636-.635-1.166-1.165-1.53-1.642c-.384-.504-.653-1.036-.653-1.68s.27-1.176.653-1.68c.364-.477.894-1.007 1.53-1.642z", 1),
-            _ => ("M2 6.21c0-1.984 0-2.977.659-3.593S4.379 2 6.5 2s3.182 0 3.841.617C11 3.233 11 4.226 11 6.21v11.58c0 1.984 0 2.977-.659 3.593S8.621 22 6.5 22s-3.182 0-3.841-.617C2 20.767 2 19.774 2 17.79z", 0.5, "", 0)
-        };
 
         private void ShortcutButton_Click(object sender, MouseButtonEventArgs e)
         {
@@ -731,7 +713,7 @@ namespace Cortinho
 
         private void SnapToNearestAnchor()
         {
-            var workArea = SystemParameters.WorkArea;
+            var workArea = GetTargetWorkArea();
             double compactWidth = GetCompactTargetWidth();
             var candidates = new (NotchAnchor Anchor, double Left)[]
             {
@@ -742,6 +724,7 @@ namespace Cortinho
 
             var closest = candidates.OrderBy(c => Math.Abs(c.Left - Left)).First();
             _anchor = closest.Anchor;
+            SaveAnchorSetting(closest.Anchor);
 
             var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
             var duration = new Duration(TimeSpan.FromMilliseconds(220));
@@ -752,13 +735,62 @@ namespace Cortinho
 
         private double GetLeftForAnchor(NotchAnchor anchor, double width)
         {
-            var workArea = SystemParameters.WorkArea;
+            var workArea = GetTargetWorkArea();
             return anchor switch
             {
                 NotchAnchor.Left => workArea.Left + 12,
                 NotchAnchor.Right => workArea.Right - width - 12,
                 _ => workArea.Left + (workArea.Width - width) / 2,
             };
+        }
+
+        // ---- Âncora e monitor (Config, fase 5) — NotchWindow não tem WS_EX_NOACTIVATE-related
+        // restriction pra isso, é só matemática de posicionamento; ver MainWindow.xaml.cs (ConfigTab).
+
+        private void LoadPlacementSettings()
+        {
+            var settings = AppSettingsStore.Load();
+            _anchor = settings.NotchAnchor switch
+            {
+                "Left" => NotchAnchor.Left,
+                "Right" => NotchAnchor.Right,
+                _ => NotchAnchor.Center,
+            };
+        }
+
+        private static void SaveAnchorSetting(NotchAnchor anchor)
+        {
+            var settings = AppSettingsStore.Load();
+            settings.NotchAnchor = anchor.ToString();
+            AppSettingsStore.Save(settings);
+        }
+
+        /// <summary>Converte o WorkingArea (px físicos) do monitor escolhido em Config pra DIPs.
+        /// Assume a mesma escala de DPI do monitor primário pra todos — cobre o caso comum (DPI uniforme
+        /// entre monitores); setups com DPI por-monitor diferente podem posicionar levemente errado.</summary>
+        private static System.Windows.Rect GetTargetWorkArea()
+        {
+            var settings = AppSettingsStore.Load();
+            if (string.IsNullOrEmpty(settings.NotchMonitorDeviceName))
+                return SystemParameters.WorkArea;
+
+            var screen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(s => s.DeviceName == settings.NotchMonitorDeviceName);
+            var primary = System.Windows.Forms.Screen.PrimaryScreen;
+            if (screen == null || primary == null) return SystemParameters.WorkArea;
+
+            double scale = SystemParameters.WorkArea.Width / primary.WorkingArea.Width;
+            var wa = screen.WorkingArea;
+            return new System.Windows.Rect(wa.X * scale, wa.Y * scale, wa.Width * scale, wa.Height * scale);
+        }
+
+        /// <summary>Chamado pela Config (MainWindow) depois de salvar uma nova âncora/monitor —
+        /// reposiciona sem esperar o próximo drag/hover.</summary>
+        public void ApplyPlacementSettings()
+        {
+            LoadPlacementSettings();
+            if (_isExpanded || _isTransitioning) return;
+            Top = GetTargetWorkArea().Top;
+            SyncCompactSize();
         }
 
         private void ResetAutoCollapseTimer()

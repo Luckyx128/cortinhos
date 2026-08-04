@@ -1,0 +1,112 @@
+import React from 'react';
+import { Icon } from './Icon';
+import { Badge } from './Badge';
+
+const TYPE_META = {
+  app: { icon: 'app', label: 'App', grad: 'linear-gradient(150deg,#1f4a73,#132b45)', glow: '#3ea6ff' },
+  folder: { icon: 'folder', label: 'Pasta', grad: 'linear-gradient(150deg,#6a4a12,#3a2a10)', glow: '#f0a92c' },
+  url: { icon: 'url', label: 'Link', grad: 'linear-gradient(150deg,#12564a,#0f3330)', glow: '#22c55e' },
+  command: { icon: 'command', label: 'Comando', grad: 'linear-gradient(150deg,#3d2f5e,#241a38)', glow: '#a78bfa' },
+};
+
+/**
+ * Steam-library-style shortcut capsule: full-bleed cover art (or a typed
+ * gradient + glyph watermark when no image), the name in a dark bottom bar.
+ * Resting → hover lifts + brightens + reveals the "Abrir" action → pressed dips.
+ */
+export function ShortcutTile({
+  name, type = 'app', cover, hotkey, running = false, pinned = false,
+  onOpen, onContextMenu, actionLabel = 'Abrir', style,
+}) {
+  const [hover, setHover] = React.useState(false);
+  const [active, setActive] = React.useState(false);
+  const meta = TYPE_META[type] || TYPE_META.app;
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setActive(false); }}
+      onMouseDown={() => setActive(true)}
+      onMouseUp={() => setActive(false)}
+      onClick={onOpen}
+      onContextMenu={onContextMenu}
+      style={{
+        position: 'relative', display: 'block', aspectRatio: '3 / 4', overflow: 'hidden',
+        borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)',
+        cursor: 'pointer', userSelect: 'none',
+        boxShadow: hover ? 'var(--elev-3)' : 'var(--elev-1)',
+        outline: hover ? '2px solid var(--accent)' : '2px solid transparent', outlineOffset: -2,
+        transform: active ? 'translateY(0) scale(.985)' : hover ? 'translateY(-3px)' : 'translateY(0)',
+        transition: 'transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-med) var(--ease-out), outline-color var(--dur-fast)',
+        ...style,
+      }}
+    >
+      {/* cover */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: cover ? `#0e1116 url("${cover}") center/cover no-repeat` : meta.grad,
+        filter: hover ? 'brightness(1.08)' : 'none', transition: 'filter var(--dur-med) var(--ease-out)',
+      }}>
+        {!cover && (
+          <>
+            {/* glyph watermark */}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: .9 }}>
+              <div style={{
+                width: 60, height: 60, borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)',
+                boxShadow: `0 0 40px ${meta.glow}55`,
+              }}>
+                <Icon name={meta.icon} size={30} color="#fff" />
+              </div>
+            </div>
+            {/* faint big letter behind */}
+            <div style={{
+              position: 'absolute', right: -6, bottom: 26, fontFamily: 'var(--font-display)', fontWeight: 700,
+              fontSize: 96, lineHeight: 1, color: 'rgba(255,255,255,.05)', pointerEvents: 'none',
+            }}>{(name || '?').charAt(0).toUpperCase()}</div>
+          </>
+        )}
+      </div>
+
+      {/* top-corner status */}
+      <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pointerEvents: 'none' }}>
+        {running ? <Badge tone="success" icon={<Icon name="gamepad" size={11} />}>rodando</Badge> : <span />}
+        {pinned && <Icon name="pin" size={15} color="#fff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.6))' }} />}
+      </div>
+
+      {/* bottom name bar (Steam-style) */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 12px 11px',
+        background: 'linear-gradient(to top, rgba(8,10,13,.94) 55%, rgba(8,10,13,0))',
+      }}>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--fs-subtitle)', color: '#fff',
+          lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textShadow: '0 1px 3px rgba(0,0,0,.6)',
+        }}>{name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 600, color: 'rgba(255,255,255,.6)' }}>{meta.label}</span>
+          {hotkey && <><span style={{ color: 'rgba(255,255,255,.3)' }}>·</span><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: 'var(--accent)' }}>{hotkey}</span></>}
+        </div>
+      </div>
+
+      {/* hover-reveal Abrir button */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12,
+        display: 'flex', justifyContent: 'center',
+        opacity: hover ? 1 : 0, transform: hover ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-spring)',
+        pointerEvents: 'none',
+      }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 'var(--radius-md)',
+          background: active ? 'var(--accent-press)' : 'var(--accent)', color: 'var(--text-on-accent)',
+          fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-semibold)',
+          boxShadow: 'var(--elev-2)',
+        }}>
+          <Icon name="play" size={14} />{actionLabel}
+        </span>
+      </div>
+    </div>
+  );
+}

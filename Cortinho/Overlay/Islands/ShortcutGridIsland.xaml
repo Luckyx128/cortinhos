@@ -1,0 +1,42 @@
+<UserControl x:Class="Cortinho.Overlay.Islands.ShortcutGridIsland"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="816" Height="332">
+
+    <UserControl.Resources>
+        <!-- Mesmo ShortcutTileButtonStyle da MainWindow (Theme/Controls.xaml) — só o tamanho muda
+             (108x144/gap 10 aqui vs. 150x200/gap 14 na janela); valores locais vencem os Setters do Style. -->
+        <DataTemplate x:Key="OverlayTileTemplate">
+            <Button Style="{StaticResource ShortcutTileButtonStyle}" Width="108" Height="144" Margin="0,0,10,10" Click="ShortcutTile_Click"/>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="ATALHOS" FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextTertiaryBrush}"/>
+            <TextBlock x:Name="CountLabel" FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextTertiaryBrush}" Opacity="0.7"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="TilesGrid" ItemTemplate="{StaticResource OverlayTileTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Focusable" Value="False"/>
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

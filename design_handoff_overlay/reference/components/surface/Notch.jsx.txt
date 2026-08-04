@@ -1,0 +1,344 @@
+import React from 'react';
+import { Icon } from '../core/Icon';
+import { Tooltip } from '../feedback/Tooltip';
+
+/**
+ * Floating always-on-top notch surface — a second, persistent surface of the
+ * system, separate from the main window.
+ *
+ * Size states (how much room it takes):
+ *   compact  — idle pill, glyphs only, no text. Smallest footprint.
+ *   peek     — hover. Widens, captions appear. Auto-recedes on mouse-out.
+ *   expanded — click. Grows into a panel of real controls.
+ *
+ * Status states (an event overriding the compact pill; priority error > alert
+ * > progress). These are transient and independent of the size state:
+ *   alert    — short transient message, accent-tinted, auto-recedes.
+ *   progress — hairline accent bar hugging the pill's bottom edge.
+ *   error    — danger-tinted, does NOT auto-recede; click to dismiss.
+ *
+ * Plus `dragging` — lifted and scaled while the user repositions it between
+ * the three top anchors.
+ */
+export function Notch({
+  micMuted = false, onToggleMic,
+  discordApp = null, discordTracking = false, onToggleTracking,
+  quickShortcuts = [], onOpenLauncher, hotkeyLabel = 'Ctrl+Alt+L',
+  notifications = [], onClearNotifications,
+  perf = null,
+  status = null, onDismissStatus,
+  anchor = 'top-center', dragging = false,
+  compactWidth = 92,
+  state: controlled, onStateChange, style,
+}) {
+  const [internal, setInternal] = React.useState('compact');
+  const state = controlled ?? internal;
+  const setState = (s) => { onStateChange ? onStateChange(s) : setInternal(s); };
+  const ref = React.useRef(null);
+  const timer = React.useRef(null);
+
+  const go = (s) => { clearTimeout(timer.current); setState(s); };
+  const scheduleCollapse = () => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setState('compact'), 3200);
+  };
+
+  React.useEffect(() => {
+    if (state !== 'expanded') return;
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) go('compact'); }
+    function onKey(e) { if (e.key === 'Escape') go('compact'); }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    scheduleCollapse();
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [state]);
+
+  const expanded = state === 'expanded';
+  const peek = state === 'peek';
+  const kind = status && status.kind;
+  const isError = kind === 'error';
+  const isAlert = kind === 'alert';
+  const isProgress = kind === 'progress';
+  // A status label takes over the pill; progress keeps the compact silhouette.
+  const showsStatusLabel = !expanded && (isError || isAlert);
+
+  const surface = expanded ? 'var(--material-acrylic)'
+    : isError ? 'var(--danger-soft)'
+    : isAlert ? 'var(--accent-soft)'
+    : 'var(--taskbar-tint)';
+  const borderColor = isError ? 'var(--danger)' : 'var(--border-subtle)';
+
+  const minWidth = expanded ? 400
+    : showsStatusLabel ? 'auto'
+    : peek ? 232
+    : compactWidth;
+
+  const anchorAlign = { 'top-left': 'flex-start', 'top-center': 'center', 'top-right': 'flex-end' }[anchor] || 'center';
+
+  return (
+    <div
+      ref={ref}
+      data-notch-state={state}
+      data-notch-status={kind || 'idle'}
+      onMouseEnter={() => { if (!expanded) go('peek'); }}
+      onMouseLeave={() => { if (!expanded) go('compact'); }}
+      onClick={() => { if (isError) { onDismissStatus && onDismissStatus(); return; } if (!expanded) go('expanded'); }}
+      onMouseMove={() => { if (expanded) scheduleCollapse(); }}
+      style={{
+        position: 'relative', display: 'flex', flexDirection: 'column', alignSelf: anchorAlign,
+        boxSizing: 'border-box',
+        width: expanded ? 400 : 'auto', minWidth,
+        padding: expanded ? '10px 12px 12px' : '0 8px',
+        height: expanded ? 'auto' : 'var(--taskbar-height)',
+        backgroundColor: surface,
+        backdropFilter: expanded ? 'var(--material-acrylic-blur)' : 'var(--material-acrylic-thin)',
+        border: `1px solid ${borderColor}`, borderTop: 'none',
+        borderRadius: '0 0 var(--radius-notch) var(--radius-notch)',
+        boxShadow: dragging ? 'var(--elev-4)'
+          : expanded ? 'var(--elev-notch)'
+          // The taskbar's hairline sits on the edge facing the content; for a
+          // top-docked surface that is the bottom edge.
+          : 'var(--elev-2), inset 0 -1px 0 var(--taskbar-hairline)',
+        transform: dragging ? 'scale(1.03)' : 'scale(1)',
+        color: 'var(--text-primary)', cursor: dragging ? 'grabbing' : expanded ? 'default' : 'pointer', userSelect: 'none',
+        overflow: isProgress ? 'hidden' : 'visible',
+        transition: 'min-width var(--dur-med) var(--ease-spring), width var(--dur-med) var(--ease-spring), background-color var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out), padding var(--dur-med) var(--ease-spring), transform var(--dur-fast) var(--ease-spring)',
+        ...style,
+      }}
+    >
+      {/* ===== top row — Windows 11 taskbar language =====
+          Each item is a 40px slot holding a 24px glyph, with the taskbar's
+          hover wash and its accent underline for "running". */}
+      {showsStatusLabel ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 'var(--taskbar-height)', padding: '0 6px', whiteSpace: 'nowrap' }}>
+          <Icon name={status.icon || (isError ? 'x' : 'gamepad')} size={20}
+            color={isError ? 'var(--danger)' : 'var(--accent)'} />
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-semibold)', color: isError ? 'var(--danger)' : 'var(--text-primary)' }}>
+            {status.label}
+          </span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--taskbar-gap)', height: 'var(--taskbar-height)', justifyContent: 'center' }}>
+          <Slot icon={micMuted ? 'mic-off' : 'mic'}
+            color={micMuted ? 'var(--danger)' : 'var(--text-primary)'}
+            label={(peek || expanded) ? (micMuted ? 'Mic mutado' : 'Mic ativo') : null}
+            labelColor={micMuted ? 'var(--danger)' : 'var(--text-secondary)'}
+            running={micMuted} indicatorColor="var(--danger)" />
+          {(discordTracking || discordApp) && (
+            <Slot icon="gamepad"
+              color={discordTracking ? 'var(--accent)' : 'var(--text-tertiary)'}
+              label={(peek || expanded) ? (discordApp || 'Discord') : null}
+              running={discordTracking} active={!!discordApp} />
+          )}
+          {notifications.length > 0 && !expanded && (
+            <Slot icon="notification" badge={notifications.length}
+              color="var(--text-primary)"
+              label={peek ? (notifications.length === 1 ? '1 notificação' : `${notifications.length} notificações`) : null} />
+          )}
+        </div>
+      )}
+
+      {/* progress hairline, hugging the pill's bottom edge */}
+      {isProgress && !expanded && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, background: 'var(--surface-3)' }}>
+          <div style={{
+            height: '100%', width: `${Math.round((status.progress ?? 0) * 100)}%`,
+            background: 'var(--accent)', transition: 'width var(--dur-med) var(--ease-out)',
+          }} />
+        </div>
+      )}
+
+      {/* ===== expanded panel ===== */}
+      {expanded && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, animation: 'notch-body var(--dur-med) var(--ease-out)' }}>
+          <style>{`@keyframes notch-body{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}`}</style>
+
+          {/* Layout B: mic + shortcuts beside the notification list, so neither
+              column runs long. Perf, Discord and the CTA stay full-width. */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button type="button" onClick={(e) => { e.stopPropagation(); onToggleMic && onToggleMic(); }} style={rowBtn(micMuted)}>
+            <Icon name={micMuted ? 'mic-off' : 'mic'} size={16} color={micMuted ? 'var(--danger)' : 'var(--text-primary)'} />
+            <span style={{ flex: 1, textAlign: 'left' }}>{micMuted ? 'Ativar mic' : 'Mutar mic'}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', color: micMuted ? 'var(--danger)' : 'var(--text-tertiary)' }}>{micMuted ? 'OFF' : 'ON'}</span>
+          </button>
+
+          {quickShortcuts.length > 0 && (
+            <div>
+              <div style={labelStyle()}>Atalhos rápidos</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {quickShortcuts.slice(0, 5).map((s, i) => (
+                  <Tooltip key={i} label={s.name} placement="bottom">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); s.onOpen && s.onOpen(); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38,
+                        background: 'var(--surface-2)', border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--accent)',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-3)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                    ><Icon name={s.type || 'app'} size={17} /></button>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+
+          {notifications.length > 0 && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ ...labelStyle(), display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span>Notificações</span>
+                <span onClick={(e) => { e.stopPropagation(); onClearNotifications && onClearNotifications(); }}
+                  style={{ cursor: 'pointer', color: 'var(--accent)', letterSpacing: 0, textTransform: 'none', fontWeight: 'var(--fw-medium)' }}>Limpar</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {notifications.slice(0, 3).map((n, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 9px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)' }}>
+                    <Icon name={n.icon || 'app'} size={15} color="var(--accent)" style={{ marginTop: 1 }} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--text-tertiary)', flexShrink: 0 }}>{n.time}</span>
+                      </span>
+                      <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+
+          {perf && (
+            <div>
+              <div style={labelStyle()}>Desempenho</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[['CPU', perf.cpu, '%'], ['GPU', perf.gpu, '%'], ['FPS', perf.fps, '']].map(([k, v, unit]) => (
+                  <div key={k} style={{ flex: 1, padding: '7px 9px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--text-tertiary)', letterSpacing: '.06em' }}>{k}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)', lineHeight: 1.2 }}>{v}{unit}</div>
+                    {unit === '%' && (
+                      <div style={{ height: 2, background: 'var(--surface-3)', borderRadius: 1, marginTop: 4 }}>
+                        <div style={{ height: '100%', width: `${v}%`, background: v > 85 ? 'var(--danger)' : 'var(--accent)', borderRadius: 1 }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)' }}>
+            <Icon name="gamepad" size={16} color={discordTracking ? 'var(--accent)' : 'var(--text-tertiary)'} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', color: 'var(--text-tertiary)' }}>Discord Rich Presence</span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {discordTracking ? (discordApp || 'Nada rodando') : 'Desativado'}
+              </span>
+            </span>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onToggleTracking && onToggleTracking(); }}
+              style={{
+                width: 34, height: 20, borderRadius: 'var(--radius-pill)', border: 'none', cursor: 'pointer', padding: 2,
+                backgroundColor: discordTracking ? 'var(--accent)' : 'var(--surface-3)', display: 'flex',
+                justifyContent: discordTracking ? 'flex-end' : 'flex-start', transition: 'background-color var(--dur-fast)',
+              }}>
+              <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff' }} />
+            </button>
+          </div>
+
+          <button type="button" onClick={(e) => { e.stopPropagation(); onOpenLauncher && onOpenLauncher(); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 34,
+              background: 'var(--accent)', color: 'var(--text-on-accent)', border: 'none',
+              borderRadius: 'var(--radius-md)', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-semibold)',
+            }}>
+            Abrir tudo
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-caption)', opacity: .8 }}>{hotkeyLabel}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One taskbar slot: a square hit target holding a glyph, with the Windows 11
+ * taskbar's hover wash, its pressed wash, and its accent underline indicator.
+ *   running → underline present (16px)
+ *   active  → underline widens to 20px, the way the focused app's does
+ * Passing `label` expands the slot horizontally (peek state).
+ * Sizes come from the --taskbar-* tokens; nothing here is a literal.
+ */
+function Slot({ icon, color, label, labelColor, running, active, badge, indicatorColor }) {
+  const [hover, setHover] = React.useState(false);
+  const [press, setPress] = React.useState(false);
+  return (
+    <span
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPress(false); }}
+      onMouseDown={() => setPress(true)}
+      onMouseUp={() => setPress(false)}
+      style={{
+        position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        gap: 8, height: 'var(--taskbar-slot)', minWidth: 'var(--taskbar-slot)',
+        padding: label ? '0 10px' : 0, borderRadius: 'var(--taskbar-slot-radius)',
+        backgroundColor: press ? 'var(--taskbar-active)' : hover ? 'var(--taskbar-hover)' : 'transparent',
+        transition: 'background-color var(--dur-fast) var(--ease-out), min-width var(--dur-med) var(--ease-spring)',
+      }}
+    >
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        {/* Glyph size comes from --taskbar-icon, not a literal, so the token is
+            the single source of truth. Icon fills the span at 100%. */}
+        <span style={{ display: 'inline-flex', width: 'var(--taskbar-icon)', height: 'var(--taskbar-icon)' }}>
+          <Icon name={icon} size="100%" color={color} />
+        </span>
+        {badge != null && (
+          <span style={{
+            position: 'absolute', top: -3, right: -6, minWidth: 15, height: 15, padding: '0 4px',
+            borderRadius: 'var(--radius-pill)', background: 'var(--accent)', color: 'var(--text-on-accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 'var(--fw-bold)', lineHeight: 1,
+          }}>{badge}</span>
+        )}
+      </span>
+      {label && (
+        <span style={{
+          fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-medium)',
+          color: labelColor || 'var(--text-secondary)', whiteSpace: 'nowrap',
+        }}>{label}</span>
+      )}
+      {running && (
+        <span style={{
+          position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+          width: active ? 'var(--taskbar-indicator-w-active)' : 'var(--taskbar-indicator-w)',
+          height: 'var(--taskbar-indicator-h)', borderRadius: 2,
+          background: indicatorColor || 'var(--accent)',
+          transition: 'width var(--dur-med) var(--ease-spring)',
+        }} />
+      )}
+    </span>
+  );
+}
+
+function capStyle(danger) {
+  return {
+    fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-medium)',
+    color: danger ? 'var(--danger)' : 'var(--text-secondary)', whiteSpace: 'nowrap',
+  };
+}
+function rowBtn(danger) {
+  return {
+    display: 'flex', alignItems: 'center', gap: 9, width: '100%', height: 36, padding: '0 10px',
+    background: 'var(--surface-2)', border: '1px solid var(--border-subtle)',
+    borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: danger ? 'var(--danger)' : 'var(--text-primary)',
+    fontFamily: 'var(--font-body)', fontSize: 'var(--fs-body)', fontWeight: 'var(--fw-medium)',
+  };
+}
+function labelStyle() {
+  return {
+    fontFamily: 'var(--font-body)', fontSize: 'var(--fs-caption)', fontWeight: 'var(--fw-semibold)',
+    color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-caps)', marginBottom: 6,
+  };
+}

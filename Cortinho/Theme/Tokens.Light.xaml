@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Cores — light. Valores de design_handoff_notch/TOKENS-WPF.md §Cor — light. Mesmas chaves de
+         Tokens.Dark.xaml — troca em runtime via Services/ThemeService.cs (fase 6). Tokens que o spec
+         base não cobre (Mica/overlay/caption/taskbar-hover extendidos por este projeto) seguem a mesma
+         fórmula de alpha-sobre-neutro que os equivalentes dark usam, aproximação documentada inline. -->
+    <SolidColorBrush x:Key="Surface1Brush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="Surface2Brush" Color="#FFF1F3F6"/>
+    <SolidColorBrush x:Key="Surface3Brush" Color="#FFE7EAEE"/>
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#1A0F141C"/>
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#2E0F141C"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF151A21"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF586170"/>
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF8A929E"/>
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#FF15A349"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#FFD63A26"/>
+    <SolidColorBrush x:Key="DangerSoftBrush" Color="#1FD63A26"/>
+    <SolidColorBrush x:Key="HoverOverlayBrush" Color="#0D0F141C"/>
+    <SolidColorBrush x:Key="PressOverlayBrush" Color="#170F141C"/>
+    <SolidColorBrush x:Key="BgBaseBrush" Color="#FFEEF0F3"/>
+    <SolidColorBrush x:Key="BgWindowBrush" Color="#FFF5F6F8"/>
+    <SolidColorBrush x:Key="TaskbarHoverBrush" Color="#140F141C"/>
+
+    <!-- Estados disabled — par de tokens, não Opacity (TOKENS-WPF.md §Plataforma, valores light) -->
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#FF9AA2AC"/>
+    <SolidColorBrush x:Key="SurfaceDisabledBrush" Color="#0A0F141C"/>
+    <SolidColorBrush x:Key="BorderDisabledBrush" Color="#120F141C"/>
+
+    <!-- Fill do notch — aproximação opaca do "taskbar tint" light (rgba(243,243,243,.82) no spec),
+         mesma divergência-pra-opaco do par dark (ver Tokens.Dark.xaml). -->
+    <SolidColorBrush x:Key="NotchFillBrush" Color="#FFF3F3F3"/>
+
+    <!-- Accent — sobrescrito em runtime por App.xaml.cs (mesmo accent do Windows nos dois temas);
+         aqui só o fallback "brand accent" light (#1f7fe0, TOKENS-WPF.md §Accent). -->
+    <Color x:Key="AccentColor">#FF1F7FE0</Color>
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}"/>
+    <Color x:Key="AccentSoftColor">#241F7FE0</Color>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="{DynamicResource AccentSoftColor}"/>
+    <Color x:Key="AccentHoverColor">#FF4796E5</Color>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentHoverColor}"/>
+
+    <!-- Overlay (design_handoff_overlay, fase 1) -->
+    <SolidColorBrush x:Key="SurfaceOverlayBrush" Color="#C7FFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceOverlayOpaqueBrush" Color="#FFF0F1F3"/>
+
+    <!-- material-mica — aproximação: bg-window light a ~60% opaco (mesma lógica do par dark) -->
+    <SolidColorBrush x:Key="MaterialMicaBrush" Color="#99F5F6F8"/>
+
+    <!-- Caption buttons — hover/press (close fica em Tokens.Shared.xaml, cor fixa em qualquer tema) -->
+    <SolidColorBrush x:Key="CaptionHoverBrush" Color="#0F0F141C"/>
+    <SolidColorBrush x:Key="CaptionPressBrush" Color="#170F141C"/>
+
+</ResourceDictionary>
