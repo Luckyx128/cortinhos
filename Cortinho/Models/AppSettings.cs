@@ -2,10 +2,6 @@ namespace Cortinho.Models
 {
     public class AppSettings
     {
-        // Flag de dev pro pacote design_handoff_overlay (fase 1) — README recomenda deixar atrás
-        // de flag até o visual ser aprovado; a MainWindow continua sendo o padrão do Ctrl+Alt+L até então.
-        public bool OpenOverlayOnHotkey { get; set; } = false;
-
         // Config (fase 5) — âncora/monitor do notch. NotchMonitorDeviceName vazio = monitor primário.
         public string NotchAnchor { get; set; } = "Center";
         public string NotchMonitorDeviceName { get; set; } = "";

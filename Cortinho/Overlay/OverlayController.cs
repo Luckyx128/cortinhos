@@ -1,6 +1,7 @@
 using Cortinho.Native;
 using Cortinho.Overlay.Islands;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 
 namespace Cortinho.Overlay
@@ -14,6 +15,11 @@ namespace Cortinho.Overlay
 
         private readonly OverlayScrimWindow _scrim = new();
         private readonly Services.GlobalInputWatcher _inputWatcher = new();
+
+        // Lazy, nunca resolvido no construtor: a NotchWindow só existe depois que App.OnStartup retorna
+        // e o WPF navega o StartupUri — mesmo padrão/mesma ressalva do DiscordIsland.Notch.
+        private NotchWindow? _notch;
+        private NotchWindow? Notch => _notch ??= System.Windows.Application.Current.Windows.OfType<NotchWindow>().FirstOrDefault();
 
         private readonly SearchIsland _searchContent = new();
         private readonly IslandWindow _searchIslandWindow;
@@ -91,6 +97,7 @@ namespace Cortinho.Overlay
             _isOpen = true;
 
             _previousForegroundWindow = NativeMethods.GetForegroundWindow();
+            Notch?.SetOverlayOpen(true);
 
             // Reset() só dispara QueryChanged("") (que filtra o grid de volta) se havia texto de uma
             // sessão anterior — no primeiro Open() a TextBox já está vazia e nada dispara, por isso o
@@ -145,6 +152,7 @@ namespace Cortinho.Overlay
 
             _perfContent.Stop();
             _discordContent.Stop();
+            Notch?.SetOverlayOpen(false);
 
             // Defensivo: garante NOACTIVATE de volta mesmo se a busca ainda estava ativa no instante
             // do fechamento (Esc/hotkey), antes do Deactivated ter chance de disparar sozinho.

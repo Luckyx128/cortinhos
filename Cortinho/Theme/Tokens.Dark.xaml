@@ -13,6 +13,7 @@
     <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF6B7480"/>
     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FF0A1119"/>
     <SolidColorBrush x:Key="SuccessBrush" Color="#FF22C55E"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#FFF0A92C"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#FFF0503C"/>
     <SolidColorBrush x:Key="DangerSoftBrush" Color="#26F0503C"/>
     <SolidColorBrush x:Key="HoverOverlayBrush" Color="#0FFFFFFF"/>

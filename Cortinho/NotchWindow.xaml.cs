@@ -68,6 +68,11 @@ namespace Cortinho
         private const double ExpandedHeight = 294; // 357 antes do módulo CPU/GPU sair do painel (~63 DIPs)
         private bool _isExpanded;
 
+        private const double IdentityWidth = 96; // logo 22 + gap 8 + ponto 7 + padding — calibrar visualmente
+        private const double IdentityPeekWidth = 200; // + legenda "Overlay ativo" no hover — estimativa, calibrar visualmente
+        private const double IdentityHeight = 48;
+        private bool _isOverlayOpen;
+
 
         public NotchWindow()
         {
@@ -178,7 +183,7 @@ namespace Cortinho
         /// <summary>Realinha Width/Left do estado compact/peek atual — chamado quando um slot aparece/some fora de um hover ativo.</summary>
         private void SyncCompactSize()
         {
-            if (_isExpanded || _isTransitioning) return;
+            if (_isExpanded || _isTransitioning || _isOverlayOpen) return;
             double targetWidth = _isPeeking ? GetPeekTargetWidth() : GetCompactTargetWidth();
             Width = targetWidth;
             Left = GetLeftForAnchor(_anchor, targetWidth);
@@ -465,7 +470,40 @@ namespace Cortinho
             TopMicOnIcon.Visibility = isMuted ? Visibility.Collapsed : Visibility.Visible;
             TopMicOffIcon.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
             TopMicCaption.Text = isMuted ? "Mic mutado" : "Mic ativo";
+
+            if (_isOverlayOpen) UpdateIdentityStatusDot();
         }
+
+        /// <summary>Pílula "identidade" (PHASE-OVERLAY.md §4) — a NotchWindow encolhe pra isso enquanto o
+        /// overlay está aberto, já que as ilhas (mic, Discord, contagem) dizem o que a pílula normalmente diria.
+        /// Ligado pelo OverlayController.Open()/Close() via lookup lazy, mesmo padrão do DiscordIsland.Notch.</summary>
+        public void SetOverlayOpen(bool open)
+        {
+            if (_isOverlayOpen == open) return;
+            _isOverlayOpen = open;
+
+            if (open)
+            {
+                _autoCollapseTimer?.Stop();
+                _isExpanded = false;
+                _isPeeking = false;
+                CompactContent.Visibility = Visibility.Collapsed;
+                ExpandedContent.Visibility = Visibility.Collapsed;
+                IdentityContent.Visibility = Visibility.Visible;
+                UpdateIdentityStatusDot();
+                AnimateSize(IdentityWidth, IdentityHeight, GetLeftForAnchor(_anchor, IdentityWidth));
+            }
+            else
+            {
+                IdentityContent.Visibility = Visibility.Collapsed;
+                CompactContent.Visibility = Visibility.Visible;
+                double width = GetCompactTargetWidth();
+                AnimateSize(width, CompactHeight, GetLeftForAnchor(_anchor, width));
+            }
+        }
+
+        private void UpdateIdentityStatusDot() =>
+            IdentityStatusDot.Fill = ResourceBrush(_micService.IsMuted ? "WarningBrush" : "SuccessBrush");
 
         private void PlayMicSound(bool isMuted)
         {
@@ -510,6 +548,7 @@ namespace Cortinho
 
         private void NotchRoot_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_isOverlayOpen) { IdentityCaption.Visibility = Visibility.Visible; AnimateWidth(IdentityPeekWidth); return; }
             if (_isExpanded || _isTransitioning) return;
             _isPeeking = true;
             MicCaption.Visibility = Visibility.Visible;
@@ -520,6 +559,7 @@ namespace Cortinho
 
         private void NotchRoot_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            if (_isOverlayOpen) { IdentityCaption.Visibility = Visibility.Collapsed; AnimateWidth(IdentityWidth); return; }
             if (_isExpanded || _isTransitioning) return;
             _isPeeking = false;
             MicCaption.Visibility = Visibility.Collapsed;
@@ -552,6 +592,7 @@ namespace Cortinho
             // Esc ou o timer de auto-collapse. Controles internos (mic, atalhos, notificações) tratam o próprio clique.
             if (_isExpanded) return;
             if (_isTransitioning) return;
+            if (_isOverlayOpen) return;
             // Status "error" só sai no clique (StatusLabel_Click) — não deixa isso virar drag/toggle.
             if (_statusKind == StatusKind.Error) return;
             double startLeft = Left;

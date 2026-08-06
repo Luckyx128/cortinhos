@@ -200,6 +200,31 @@
             </Border>
             </Grid>
 
+            <Grid x:Name="IdentityContent" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Viewbox Width="22" Height="22">
+                        <Canvas Width="128" Height="128">
+                            <Canvas.Resources>
+                                <DrawingBrush x:Key="IdentityLogoStripes" TileMode="Tile" Viewport="0,0,28.16,128" ViewportUnits="Absolute">
+                                    <DrawingBrush.Drawing>
+                                        <DrawingGroup>
+                                            <GeometryDrawing Brush="#FF3EA6FF" Geometry="M0,0 H14.08 V128 H0 Z"/>
+                                            <GeometryDrawing Brush="#FF2F8FE0" Geometry="M14.08,0 H28.16 V128 H14.08 Z"/>
+                                        </DrawingGroup>
+                                    </DrawingBrush.Drawing>
+                                </DrawingBrush>
+                            </Canvas.Resources>
+                            <Path Data="M0,28 A28,28 0 0 1 28,0 H100 A28,28 0 0 1 128,28 V100 A28,28 0 0 1 100,128 H28 A28,28 0 0 1 0,100 Z" Fill="{StaticResource IdentityLogoStripes}"/>
+                            <Path Data="M24 0 H104 V20 a26 26 0 0 1 -26 26 H50 a26 26 0 0 1 -26 -26 Z" Fill="#FF14171C"/>
+                        </Canvas>
+                    </Viewbox>
+                    <Ellipse x:Name="IdentityStatusDot" Width="7" Height="7" Margin="8,0,0,0" Fill="{DynamicResource SuccessBrush}"/>
+                    <TextBlock x:Name="IdentityCaption" Text="Overlay ativo" Visibility="Collapsed"
+                               FontFamily="{DynamicResource FontBody}" FontSize="12" FontWeight="Medium"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Grid>
+
             <Grid x:Name="StatusProgressBar" Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Surface3Brush}" Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="StatusProgressFillCol" Width="0*"/>

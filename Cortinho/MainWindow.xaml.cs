@@ -107,10 +107,7 @@ namespace Cortinho
         {
             if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID_LAUNCHER)
             {
-                if (Overlay != null && AppSettingsStore.Load().OpenOverlayOnHotkey)
-                    Overlay.Toggle();
-                else
-                    ToggleLauncher();
+                Overlay?.Toggle();
                 handled = true;
             }
             return IntPtr.Zero;
