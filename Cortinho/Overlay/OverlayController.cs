@@ -6,14 +6,17 @@ using System.Windows;
 namespace Cortinho.Overlay
 {
     /// <summary>Abre/fecha o overlay: scrim + ilhas, foco (PHASE-OVERLAY.md §6), stagger de entrada.
-    /// Fase 2 = grid + as 6 ilhas "simples" (Config/Favoritos/Mic/Discord/Desempenho/Notificações) — só
-    /// a Busca (a única que tira foco do jogo) fica pra depois.</summary>
+    /// Fase 2 completa: grid + as 6 ilhas "simples" (Config/Favoritos/Mic/Discord/Desempenho/Notificações)
+    /// + Busca — a única que tira foco do jogo, via IslandWindow.Activate()/Deactivate().</summary>
     public class OverlayController
     {
         private readonly MainWindow _mainWindow;
 
         private readonly OverlayScrimWindow _scrim = new();
         private readonly Services.GlobalInputWatcher _inputWatcher = new();
+
+        private readonly SearchIsland _searchContent = new();
+        private readonly IslandWindow _searchIslandWindow;
 
         private readonly ShortcutGridIsland _gridContent = new();
         private readonly IslandWindow _gridIslandWindow;
@@ -43,6 +46,7 @@ namespace Cortinho.Overlay
         {
             _mainWindow = mainWindow;
 
+            _searchIslandWindow = new IslandWindow(_searchContent, 460, double.NaN);
             _gridIslandWindow = new IslandWindow(_gridContent, 848, 364);
             _micIslandWindow = new IslandWindow(_micContent, 264, double.NaN);
             _notifIslandWindow = new IslandWindow(_notifContent, 264, 200);
@@ -56,6 +60,21 @@ namespace Cortinho.Overlay
                 _mainWindow.ShowLauncher();
                 Close();
             };
+
+            // "O grid filtra junto — é a mesma consulta" (PHASE-OVERLAY.md §5.2).
+            _searchContent.QueryChanged += query => _gridContent.Filter(query);
+
+            // Fecha o overlay ao lançar um atalho, de qualquer uma das 3 ilhas que lançam — sem isso
+            // o overlay ficava por cima competindo pelo foco com o app recém-aberto (achado em teste
+            // ao vivo do usuário, não estava no PHASE-OVERLAY.md).
+            _searchContent.ShortcutLaunched += Close;
+            _gridContent.ShortcutLaunched += Close;
+            _favContent.ShortcutLaunched += Close;
+
+            // Contrato do §6: ao a busca perder o foco (clique no jogo, alt-tab...), devolve o estado
+            // NOACTIVATE. Não chama SetForegroundWindow aqui — se for o Close() causando isso, quem
+            // devolve o foco à janela salva é o próprio Close(), logo abaixo.
+            _searchIslandWindow.Deactivated += (_, _) => _searchIslandWindow.Deactivate();
 
             _inputWatcher.EscapePressed += () => { if (_isOpen) Close(); };
         }
@@ -73,6 +92,10 @@ namespace Cortinho.Overlay
 
             _previousForegroundWindow = NativeMethods.GetForegroundWindow();
 
+            // Reset() só dispara QueryChanged("") (que filtra o grid de volta) se havia texto de uma
+            // sessão anterior — no primeiro Open() a TextBox já está vazia e nada dispara, por isso o
+            // Refresh() abaixo continua necessário como carga inicial do grid.
+            _searchContent.Reset();
             _gridContent.Refresh();
             _favContent.Refresh();
             _micContent.Refresh();
@@ -93,7 +116,7 @@ namespace Cortinho.Overlay
             // ActualHeight válido depois de entrarem na árvore visual, e o empilhamento da coluna
             // esquerda depende dessa altura. Opacity=0 no Prepare evita o flash de um frame na
             // posição antiga — quem devolve a opacidade é o AnimateIn logo abaixo.
-            var visible = new List<IslandWindow> { _gridIslandWindow, _micIslandWindow, _notifIslandWindow, _favIslandWindow };
+            var visible = new List<IslandWindow> { _searchIslandWindow, _gridIslandWindow, _micIslandWindow, _notifIslandWindow, _favIslandWindow };
             if (discordAvailable) visible.Add(_discordIslandWindow);
             if (perfAvailable) visible.Add(_perfIslandWindow);
             visible.Add(_configIslandWindow);
@@ -107,7 +130,8 @@ namespace Cortinho.Overlay
 
             PositionIslands();
 
-            // Stagger de ~20ms, ordem grid → laterais (PHASE-OVERLAY.md §7) — busca ainda não existe.
+            // Stagger de ~20ms, ordem busca → grid → laterais (PHASE-OVERLAY.md §7, mesma ordem do
+            // tab order do §6).
             for (int i = 0; i < visible.Count; i++)
                 visible[i].AnimateIn(TimeSpan.FromMilliseconds(20 * i), animate);
         }
@@ -122,6 +146,11 @@ namespace Cortinho.Overlay
             _perfContent.Stop();
             _discordContent.Stop();
 
+            // Defensivo: garante NOACTIVATE de volta mesmo se a busca ainda estava ativa no instante
+            // do fechamento (Esc/hotkey), antes do Deactivated ter chance de disparar sozinho.
+            _searchIslandWindow.Deactivate();
+
+            HideIsland(_searchIslandWindow, animate);
             HideIsland(_gridIslandWindow, animate);
             HideIsland(_micIslandWindow, animate);
             HideIsland(_notifIslandWindow, animate);
@@ -155,6 +184,9 @@ namespace Cortinho.Overlay
         {
             double screenWidth = SystemParameters.PrimaryScreenWidth;
             double screenHeight = SystemParameters.PrimaryScreenHeight;
+
+            _searchIslandWindow.Left = (screenWidth - _searchIslandWindow.Width) / 2;
+            _searchIslandWindow.Top = 140;
 
             _gridIslandWindow.Left = (screenWidth - _gridIslandWindow.Width) / 2;
             _gridIslandWindow.Top = screenHeight - _gridIslandWindow.Height - 18;

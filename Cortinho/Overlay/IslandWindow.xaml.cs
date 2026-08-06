@@ -37,6 +37,26 @@ namespace Cortinho.Overlay
                 style | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE);
         }
 
+        /// <summary>Remove WS_EX_NOACTIVATE e força esta janela a virar foreground (PHASE-OVERLAY.md
+        /// §6) — só a ilha de Busca chama isso, ao ser clicada. Deactivate() devolve o estado normal;
+        /// o OverlayController liga isso ao evento Window.Deactivated. Nome não é "Activate" de
+        /// propósito: Window já tem um Activate() herdado (bool, ativação "educada" via Win32) que não
+        /// mexe em WS_EX_NOACTIVATE — reaproveitar o nome ia esconder esse método sem sobrescrever nada.</summary>
+        public void ActivateForInput()
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            int style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, style & ~NativeMethods.WS_EX_NOACTIVATE);
+            NativeMethods.SetForegroundWindow(hwnd);
+        }
+
+        public void Deactivate()
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            int style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, style | NativeMethods.WS_EX_NOACTIVATE);
+        }
+
         public void AnimateIn(TimeSpan delay, bool animate)
         {
             if (!animate)

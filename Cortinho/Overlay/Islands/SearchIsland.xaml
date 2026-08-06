@@ -1,0 +1,89 @@
+<!-- Width = 460 (tamanho da IslandWindow) - 32 (16 de padding de cada lado do chrome da ilha,
+     IslandWindow.xaml/IslandRoot) — mesmo cálculo do ShortcutGridIsland (848-32=816) e do
+     MicIsland/FavoritesIsland (264-32=232). Usar o mesmo valor da janela aqui entorta o chip
+     "Enter" pra fora da área útil, cortado pelo canto arredondado. -->
+<UserControl x:Class="Cortinho.Overlay.Islands.SearchIsland"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="428">
+    <StackPanel>
+        <!-- Linha de busca, 44 de altura (PHASE-OVERLAY.md §5.2). Clicar em qualquer ponto dela ativa
+             a IslandWindow (tira NOACTIVATE) e foca a TextBox — única ilha que tira foco do jogo. -->
+        <Border x:Name="SearchBar" Height="44" Background="Transparent" Cursor="IBeam"
+                PreviewMouseLeftButtonDown="SearchBar_PreviewMouseLeftButtonDown">
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Viewbox Grid.Column="0" Width="18" Height="18" Margin="0,0,8,0">
+                    <Canvas Width="24" Height="24">
+                        <Path Data="M20.313 11.157a9.157 9.157 0 1 1-18.313 0a9.157 9.157 0 0 1 18.313 0" Opacity="0.5" Fill="{DynamicResource TextTertiaryBrush}"/>
+                        <Path Data="m17.1 18.122l3.666 3.666a.723.723 0 0 0 1.023-1.022L18.122 17.1a9 9 0 0 1-1.022 1.022" Fill="{DynamicResource TextTertiaryBrush}"/>
+                    </Canvas>
+                </Viewbox>
+
+                <Grid Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="Placeholder" Text="Buscar atalho, pasta ou comando…" Foreground="{DynamicResource TextTertiaryBrush}"
+                               FontFamily="{DynamicResource FontBody}" FontSize="15" IsHitTestVisible="False"/>
+                    <TextBox x:Name="SearchBox" Background="Transparent" BorderThickness="0" CaretBrush="{DynamicResource TextPrimaryBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="{DynamicResource FontBody}" FontSize="15"
+                             VerticalContentAlignment="Center"
+                             PreviewMouseLeftButtonDown="SearchBar_PreviewMouseLeftButtonDown"
+                             TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
+                </Grid>
+
+                <Border Grid.Column="2" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="4" Padding="7,3">
+                    <TextBlock Text="Enter" FontFamily="{DynamicResource FontMono}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Resultados: até 4, primeira linha destacada por padrão, ↑/↓ movem a seleção -->
+        <StackPanel x:Name="ResultsPanel" Visibility="Collapsed" Margin="0,6,0,0">
+            <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,0,0,6"/>
+            <ItemsControl x:Name="ResultsHost">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="8,7" CornerRadius="4" Margin="0,0,0,2">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Viewbox Grid.Column="0" Width="16" Height="16" Margin="0,0,8,0">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Data="{Binding IconLayer1}" Opacity="{Binding IconLayer1Opacity}" Fill="{DynamicResource AccentBrush}"/>
+                                        <Path Data="{Binding IconLayer2}" Opacity="{Binding IconLayer2Opacity}" Fill="{DynamicResource AccentBrush}"/>
+                                    </Canvas>
+                                </Viewbox>
+
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontFamily="{DynamicResource FontBody}" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                                <TextBlock Grid.Column="2" Text="{Binding HotkeyLabel}" Visibility="{Binding HotkeyVisibility}"
+                                           FontFamily="{DynamicResource FontMono}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

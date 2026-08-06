@@ -1,5 +1,6 @@
 using Cortinho.Models;
 using Cortinho.Services;
+using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,6 +11,10 @@ namespace Cortinho.Overlay.Islands
     /// <summary>Ilha Favoritos (PHASE-OVERLAY.md §5.5) — até 5 ShortcutItem com Pinned == true.</summary>
     public partial class FavoritesIsland : System.Windows.Controls.UserControl
     {
+        /// <summary>Ver ShortcutGridIsland.ShortcutLaunched — mesmo contrato, o OverlayController
+        /// fecha o overlay ao lançar um atalho pra devolver o foco pro app recém-aberto.</summary>
+        public event Action? ShortcutLaunched;
+
         private sealed class FavoriteDisplayItem
         {
             public string Name { get; init; } = "";
@@ -49,7 +54,10 @@ namespace Cortinho.Overlay.Islands
         private void FavoriteButton_Click(object sender, MouseButtonEventArgs e)
         {
             if (((FrameworkElement)sender).DataContext is FavoriteDisplayItem item)
+            {
                 ShortcutLauncherService.Launch(item.Source);
+                ShortcutLaunched?.Invoke();
+            }
         }
     }
 }
