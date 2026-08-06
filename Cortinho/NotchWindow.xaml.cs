@@ -26,14 +26,12 @@ namespace Cortinho
     {
         private readonly MicService _micService = new();
         private readonly NotificationService _notificationService = new();
-        private readonly PerfService _perfService = new();
         private readonly DiscordPresenceService _discordPresenceService = new();
         private GamePresenceWatcher? _discordWatcher;
         private DiscordSettings _discordSettings = new();
         private GlobalInputWatcher? _inputWatcher;
         private HwndSource? _hwndSource;
         private DispatcherTimer? _autoCollapseTimer;
-        private DispatcherTimer? _perfTimer;
         private const int HOTKEY_ID_MUTE = 9000;
 
         // Largura base = só o slot do mic. Cada slot extra (Discord, notificações) visível soma mais espaço —
@@ -47,6 +45,14 @@ namespace Cortinho
         private bool _isPeeking;
         private int _notificationCount;
 
+        /// <summary>Exposto pra ilha Discord do overlay (design_handoff_overlay §5.6) reaproveitar o mesmo
+        /// _discordPresenceService/_discordWatcher em vez de abrir uma segunda conexão RPC com o Discord.</summary>
+        public bool DiscordConfigured => !string.IsNullOrWhiteSpace(_discordSettings.ClientId);
+        public bool DiscordTrackingEnabled => _discordSettings.Enabled;
+        public string? DiscordCurrentAppName => _discordWatcher?.CurrentAppName;
+        public DateTime? DiscordCurrentAppStartedUtc => _discordWatcher?.CurrentAppStartedUtc;
+        public event Action? DiscordStateChanged;
+
         private enum StatusKind { None, Alert, Progress, Error }
         private StatusKind _statusKind = StatusKind.None;
         private DispatcherTimer? _statusAutoRecedeTimer;
@@ -59,7 +65,7 @@ namespace Cortinho
 
         private const double CompactHeight = 36;
         private const double ExpandedWidth = 400;
-        private const double ExpandedHeight = 357;
+        private const double ExpandedHeight = 294; // 357 antes do módulo CPU/GPU sair do painel (~63 DIPs)
         private bool _isExpanded;
 
 
@@ -71,7 +77,6 @@ namespace Cortinho
 
             UpdateMicIcon();
             _ = InitializeNotificationsAsync();
-            InitializePerf();
             InitializeShortcuts();
             InitializeDiscord();
 
@@ -209,6 +214,7 @@ namespace Cortinho
                     {
                         DiscordValueText.Text = appName ?? "Nada rodando";
                         UpdateDiscordSlot();
+                        DiscordStateChanged?.Invoke();
                     });
             }
 
@@ -223,7 +229,9 @@ namespace Cortinho
             DiscordValueText.Text = "Desativado";
         }
 
-        private void DiscordToggle_Click(object sender, MouseButtonEventArgs e)
+        private void DiscordToggle_Click(object sender, MouseButtonEventArgs e) => ToggleDiscordTracking();
+
+        public void ToggleDiscordTracking()
         {
             _discordSettings.Enabled = !_discordSettings.Enabled;
             DiscordSettingsStore.Save(_discordSettings);
@@ -235,6 +243,7 @@ namespace Cortinho
                 StopDiscordWatcher();
 
             UpdateDiscordSlot();
+            DiscordStateChanged?.Invoke();
         }
 
         /// <summary>Slot 2 da pill compacta/peek — glifo gamepad, só visível enquanto o tracking do Discord está ligado.</summary>
@@ -311,57 +320,11 @@ namespace Cortinho
                 ShortcutLauncherService.Launch(item.Source);
         }
 
-        private void InitializePerf()
-        {
-            if (!_perfService.IsAvailable)
-                return; // sem provider de CPU — esconde o módulo inteiro, igual ao spec pede
-
-            PerfPanel.Visibility = Visibility.Visible;
-
-            _perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-            _perfTimer.Tick += (_, _) => _ = UpdatePerfAsync();
-            _perfTimer.Start();
-        }
-
-        private bool _perfUpdateInProgress;
-
-        private async Task UpdatePerfAsync()
-        {
-            if (_perfUpdateInProgress) return; // tick anterior ainda rodando — pula essa rodada em vez de sobrepor
-            _perfUpdateInProgress = true;
-            try
-            {
-                // Enumerar/criar PerformanceCounter (principalmente os de GPU) pode levar dezenas de ms —
-                // rodar isso na UI thread trava o hook global de mouse (mesma thread), então roda em background.
-                var (cpu, gpu) = await Task.Run(() => (_perfService.GetCpuUsage(), _perfService.GetGpuUsage()));
-
-                CpuValueText.Text = $"{cpu:F0}%";
-                SetPerfBar(CpuBarFillCol, CpuBarEmptyCol, CpuBarFill, cpu);
-
-                if (gpu is null)
-                {
-                    GpuValueText.Text = "—";
-                    SetPerfBar(GpuBarFillCol, GpuBarEmptyCol, GpuBarFill, 0);
-                }
-                else
-                {
-                    GpuValueText.Text = $"{gpu.Value:F0}%";
-                    SetPerfBar(GpuBarFillCol, GpuBarEmptyCol, GpuBarFill, gpu.Value);
-                }
-            }
-            finally
-            {
-                _perfUpdateInProgress = false;
-            }
-        }
-
-        private static void SetPerfBar(ColumnDefinition fillCol, ColumnDefinition emptyCol, Border fill, double percent)
-        {
-            percent = Math.Clamp(percent, 0, 100);
-            fillCol.Width = new GridLength(percent, GridUnitType.Star);
-            emptyCol.Width = new GridLength(100 - percent, GridUnitType.Star);
-            fill.Background = ResourceBrush(percent > 85 ? "DangerBrush" : "AccentBrush");
-        }
+        // Módulo de desempenho (CPU/GPU) removido daqui de propósito: o DispatcherTimer rodava desde o
+        // startup até o fim do app, mesmo com a pill recolhida e ninguém vendo os números, e cada ciclo
+        // lia centenas de contadores PDH "GPU Engine" (~1s de CPU por leitura, a cada 1.5s → mais de
+        // meio núcleo queimado continuamente, medido). Agora o perf vive só no PerfIsland do overlay,
+        // que só liga o timer enquanto o overlay está aberto. Ver Overlay/Islands/PerfIsland.xaml.cs.
 
         private sealed class NotificationDisplayItem
         {
@@ -479,8 +442,6 @@ namespace Cortinho
             NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
             _hwndSource?.RemoveHook(WndProc);
             _inputWatcher?.Dispose();
-            _perfTimer?.Stop();
-            _perfService.Dispose();
             _discordWatcher?.Dispose();
             _discordPresenceService.Dispose();
             base.OnClosed(e);

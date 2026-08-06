@@ -11,11 +11,19 @@ namespace Cortinho.Overlay
     /// (PHASE-OVERLAY.md §2/§10).</summary>
     public partial class IslandWindow : Window
     {
-        public IslandWindow(FrameworkElement content, double width, double height)
+        /// <summary>height = double.NaN pede altura automática (SizeToContent) — usado pelas ilhas
+        /// "264×auto" do PHASE-OVERLAY.md §3, cuja âncora é sempre pelo topo (Top não depende da altura,
+        /// então medir depois do primeiro layout não atrapalha o posicionamento). padding sobrescreve o
+        /// 16 padrão — só a ilha Config (44×44) usa um valor menor pra sobrar espaço pro glifo.</summary>
+        public IslandWindow(FrameworkElement content, double width, double height, double padding = 16)
         {
             InitializeComponent();
             Width = width;
-            Height = height;
+            if (double.IsNaN(height))
+                SizeToContent = SizeToContent.Height;
+            else
+                Height = height;
+            IslandRoot.Padding = new Thickness(padding);
             ContentHost.Content = content;
         }
 

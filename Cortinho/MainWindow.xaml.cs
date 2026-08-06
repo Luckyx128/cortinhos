@@ -147,6 +147,7 @@ namespace Cortinho
             Services.ThemeService.ThemeChanged -= OnThemeChanged;
             NativeMethods.UnregisterHotKey(_hwnd, HOTKEY_ID_LAUNCHER);
             _hwndSource?.RemoveHook(WndProc);
+            Overlay?.Dispose();
             base.OnClosed(e);
         }
 

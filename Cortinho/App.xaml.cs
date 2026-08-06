@@ -30,7 +30,7 @@ namespace Cortinho
                 return; // relançou como processo com identidade e está saindo — não cria UI nesse processo
 
             _mainWindow = new MainWindow(); // criada oculta — só aparece via tray, hotkey Ctrl+Alt+L (se a flag de overlay estiver off) ou clique no ícone
-            _mainWindow.Overlay = new Overlay.OverlayController(); // design_handoff_overlay fase 1 — atrás da flag "OpenOverlayOnHotkey" em app-settings.json
+            _mainWindow.Overlay = new Overlay.OverlayController(_mainWindow); // design_handoff_overlay — atrás da flag "OpenOverlayOnHotkey" em app-settings.json
 
             // Acrylic real num ContextMenuStrip (WinForms) não é viável sem trabalho Win32 bem maior
             // (SetWindowRgn pra cantos + composição própria) — divergência aceita do fase 4. Aproxima

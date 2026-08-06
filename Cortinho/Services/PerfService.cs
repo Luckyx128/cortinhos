@@ -35,6 +35,13 @@ namespace Cortinho.Services
             catch { return 0; }
         }
 
+        // Só o engine 3D. A categoria "GPU Engine" tem uma instância por (processo × engine) — nesta
+        // máquina, 651 no total, e ler TODAS custa ~1s de CPU por ciclo (medido), o que a 1.5s de
+        // intervalo queimava mais de meio núcleo continuamente. Filtrar por engtype_3D corta pra ~145
+        // instâncias, e 3D é justamente o que interessa num overlay de jogo (era o grupo que dominava
+        // o Max() de qualquer forma na prática). Vídeo/Copy/Compute deixam de contar.
+        private const string EngineSuffix = "engtype_3D";
+
         /// <returns>null se a categoria "GPU Engine" não existir nessa máquina (sem provider) — módulo deve se esconder.</returns>
         public double? GetGpuUsage()
         {
@@ -43,7 +50,8 @@ namespace Cortinho.Services
             try
             {
                 var category = new PerformanceCounterCategory("GPU Engine");
-                var currentInstances = new HashSet<string>(category.GetInstanceNames());
+                var currentInstances = new HashSet<string>(
+                    category.GetInstanceNames().Where(n => n.EndsWith(EngineSuffix, StringComparison.Ordinal)));
 
                 foreach (var stale in _gpuCounters.Keys.Where(k => !currentInstances.Contains(k)).ToList())
                 {
@@ -51,13 +59,10 @@ namespace Cortinho.Services
                     _gpuCounters.Remove(stale);
                 }
 
-                var byEngineType = new Dictionary<string, double>();
+                double total = 0;
 
                 foreach (var instanceName in currentInstances)
                 {
-                    var idx = instanceName.IndexOf("engtype_", StringComparison.Ordinal);
-                    if (idx < 0) continue;
-
                     if (!_gpuCounters.TryGetValue(instanceName, out var counter))
                     {
                         try
@@ -70,15 +75,11 @@ namespace Cortinho.Services
                         continue; // sem valor confiável ainda nesta rodada pra essa instância
                     }
 
-                    double value;
-                    try { value = counter.NextValue(); }
+                    try { total += counter.NextValue(); }
                     catch { continue; }
-
-                    var engineType = instanceName[(idx + "engtype_".Length)..];
-                    byEngineType[engineType] = byEngineType.GetValueOrDefault(engineType) + value;
                 }
 
-                return byEngineType.Count > 0 ? Math.Clamp(byEngineType.Values.Max(), 0, 100) : 0;
+                return Math.Clamp(total, 0, 100);
             }
             catch
             {

@@ -19,6 +19,7 @@ namespace Cortinho.Services
         private Process? _activeProcess;
 
         public string? CurrentAppName { get; private set; }
+        public DateTime? CurrentAppStartedUtc { get; private set; }
 
         public event Action<string?>? ActiveAppChanged;
 
@@ -40,6 +41,7 @@ namespace Cortinho.Services
             _timer.Stop();
             _activeProcess = null;
             CurrentAppName = null;
+            CurrentAppStartedUtc = null;
         }
 
         private void Poll()
@@ -49,6 +51,7 @@ namespace Cortinho.Services
                 _presence.ClearPresence();
                 _activeProcess = null;
                 CurrentAppName = null;
+                CurrentAppStartedUtc = null;
                 ActiveAppChanged?.Invoke(null);
             }
 
@@ -74,6 +77,7 @@ namespace Cortinho.Services
                     startedAtUtc: started);
 
                 CurrentAppName = item.Name;
+                CurrentAppStartedUtc = started;
                 ActiveAppChanged?.Invoke(item.Name);
                 break;
             }
