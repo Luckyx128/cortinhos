@@ -14,18 +14,36 @@ namespace Cortinho.Overlay.Islands
     /// Some inteira se não houver Client ID configurado (mesmo critério do card no notch).</summary>
     public partial class DiscordIsland : System.Windows.Controls.UserControl
     {
-        private readonly NotchWindow? _notch;
+        private NotchWindow? _notch;
+        private bool _subscribed;
         private DispatcherTimer? _clockTimer;
 
         public DiscordIsland()
         {
             InitializeComponent();
-            _notch = System.Windows.Application.Current.Windows.OfType<NotchWindow>().FirstOrDefault();
-            if (_notch != null)
-                _notch.DiscordStateChanged += OnDiscordStateChanged;
         }
 
-        public bool IsAvailable => _notch?.DiscordConfigured == true;
+        /// <summary>Resolvida sob demanda, NUNCA no construtor: o OverlayController nasce dentro de
+        /// App.OnStartup, e o WPF só navega o StartupUri (que é quem cria a NotchWindow) DEPOIS que
+        /// OnStartup retorna — capturar aqui no .ctor deixava a referência null pra sempre e a ilha
+        /// do Discord nunca aparecia. Todo acesso ao notch passa por esta propriedade.</summary>
+        private NotchWindow? Notch
+        {
+            get
+            {
+                _notch ??= System.Windows.Application.Current.Windows.OfType<NotchWindow>().FirstOrDefault();
+
+                if (_notch != null && !_subscribed)
+                {
+                    _subscribed = true;
+                    _notch.DiscordStateChanged += OnDiscordStateChanged;
+                }
+
+                return _notch;
+            }
+        }
+
+        public bool IsAvailable => Notch?.DiscordConfigured == true;
 
         public void Refresh()
         {
@@ -45,11 +63,11 @@ namespace Cortinho.Overlay.Islands
 
         private void OnDiscordStateChanged() => Dispatcher.Invoke(UpdateVisual);
 
-        private void Toggle_Click(object sender, MouseButtonEventArgs e) => _notch?.ToggleDiscordTracking();
+        private void Toggle_Click(object sender, MouseButtonEventArgs e) => Notch?.ToggleDiscordTracking();
 
         private void UpdateVisual()
         {
-            bool enabled = _notch?.DiscordTrackingEnabled == true;
+            bool enabled = Notch?.DiscordTrackingEnabled == true;
 
             ToggleTrack.Background = ResourceBrush(enabled ? "AccentBrush" : "Surface3Brush");
             ToggleKnob.HorizontalAlignment = enabled ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
@@ -59,7 +77,7 @@ namespace Cortinho.Overlay.Islands
             GamepadBody.Fill = glyphBrush;
             GamepadDetail.Fill = glyphBrush;
 
-            string? appName = _notch?.DiscordCurrentAppName;
+            string? appName = Notch?.DiscordCurrentAppName;
             AppNameText.Text = !enabled ? "Rastreio desativado" : appName ?? "Nada rodando";
             StatusDot.Background = ResourceBrush(enabled && appName != null ? "SuccessBrush" : "TextTertiaryBrush");
 
@@ -68,7 +86,7 @@ namespace Cortinho.Overlay.Islands
 
         private void UpdateElapsedTime()
         {
-            var started = _notch?.DiscordCurrentAppStartedUtc;
+            var started = Notch?.DiscordCurrentAppStartedUtc;
             if (started is null)
             {
                 TimeText.Text = "--:--";

@@ -6,9 +6,18 @@
         <TextBlock Text="MIC + ÁUDIO" FontFamily="{DynamicResource FontBody}" FontSize="11" FontWeight="SemiBold"
                    Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,0,10"/>
 
-        <StackPanel Orientation="Horizontal">
+        <!-- Grid, não StackPanel: os rótulos são fixos ("Mic"/"Áudio", o estado mutado só troca cor e
+             glifo, conforme §5.3), mas a coluna * do medidor garante que nada transborde os 264 DIPs
+             mesmo se o conteúdo crescer — o StackPanel anterior empurrava o medidor pra fora da ilha. -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
             <!-- Botão Mic -->
-            <Border x:Name="MicButton" Height="34" CornerRadius="4" Padding="11,0" Cursor="Hand"
+            <Border x:Name="MicButton" Grid.Column="0" Height="34" CornerRadius="4" Padding="11,0" Cursor="Hand"
                     MouseLeftButtonDown="MicButton_Click" Margin="0,0,7,0">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -36,7 +45,7 @@
             </Border>
 
             <!-- Botão Áudio -->
-            <Border x:Name="AudioButton" Height="34" CornerRadius="4" Padding="11,0" Cursor="Hand"
+            <Border x:Name="AudioButton" Grid.Column="1" Height="34" CornerRadius="4" Padding="11,0" Cursor="Hand"
                     MouseLeftButtonDown="AudioButton_Click" Margin="0,0,7,0">
                 <Border.Style>
                     <Style TargetType="Border">
@@ -65,13 +74,14 @@
             </Border>
 
             <!-- Medidor decorativo (sem provider de nível real — reflete só o estado mutado do mic) -->
-            <StackPanel x:Name="Meter" Orientation="Horizontal" VerticalAlignment="Bottom" Height="22">
+            <StackPanel x:Name="Meter" Grid.Column="2" Orientation="Horizontal"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Height="22" Margin="0,0,0,6">
                 <Border x:Name="Bar1" Width="3" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,2,0" Background="{DynamicResource SuccessBrush}"/>
                 <Border x:Name="Bar2" Width="3" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,2,0" Background="{DynamicResource SuccessBrush}"/>
                 <Border x:Name="Bar3" Width="3" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,2,0" Background="{DynamicResource SuccessBrush}"/>
                 <Border x:Name="Bar4" Width="3" CornerRadius="2" VerticalAlignment="Bottom" Margin="0,0,2,0" Background="{DynamicResource SuccessBrush}"/>
                 <Border x:Name="Bar5" Width="3" CornerRadius="2" VerticalAlignment="Bottom" Background="{DynamicResource SuccessBrush}"/>
             </StackPanel>
-        </StackPanel>
+        </Grid>
     </StackPanel>
 </UserControl>

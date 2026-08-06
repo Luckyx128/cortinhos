@@ -1,5 +1,6 @@
 using Cortinho.Native;
 using Cortinho.Overlay.Islands;
+using System.Collections.Generic;
 using System.Windows;
 
 namespace Cortinho.Overlay
@@ -83,30 +84,32 @@ namespace Cortinho.Overlay
             bool perfAvailable = _perfContent.IsAvailable;
             if (perfAvailable) _perfContent.Start();
 
-            PositionIslands();
-
             bool animate = SystemParameters.ClientAreaAnimation;
 
             _scrim.Show();
             _scrim.FadeIn(animate);
 
+            // Mostrar ANTES de posicionar: as ilhas de altura automática (SizeToContent) só têm
+            // ActualHeight válido depois de entrarem na árvore visual, e o empilhamento da coluna
+            // esquerda depende dessa altura. Opacity=0 no Prepare evita o flash de um frame na
+            // posição antiga — quem devolve a opacidade é o AnimateIn logo abaixo.
+            var visible = new List<IslandWindow> { _gridIslandWindow, _micIslandWindow, _notifIslandWindow, _favIslandWindow };
+            if (discordAvailable) visible.Add(_discordIslandWindow);
+            if (perfAvailable) visible.Add(_perfIslandWindow);
+            visible.Add(_configIslandWindow);
+
+            foreach (var window in visible)
+            {
+                window.Opacity = 0;
+                window.Show();
+                window.UpdateLayout();
+            }
+
+            PositionIslands();
+
             // Stagger de ~20ms, ordem grid → laterais (PHASE-OVERLAY.md §7) — busca ainda não existe.
-            int step = 0;
-            TimeSpan NextDelay() => TimeSpan.FromMilliseconds(20 * step++);
-
-            ShowIsland(_gridIslandWindow, NextDelay(), animate);
-            ShowIsland(_micIslandWindow, NextDelay(), animate);
-            ShowIsland(_notifIslandWindow, NextDelay(), animate);
-            ShowIsland(_favIslandWindow, NextDelay(), animate);
-            if (discordAvailable) ShowIsland(_discordIslandWindow, NextDelay(), animate);
-            if (perfAvailable) ShowIsland(_perfIslandWindow, NextDelay(), animate);
-            ShowIsland(_configIslandWindow, NextDelay(), animate);
-        }
-
-        private static void ShowIsland(IslandWindow window, TimeSpan delay, bool animate)
-        {
-            window.Show();
-            window.AnimateIn(delay, animate);
+            for (int i = 0; i < visible.Count; i++)
+                visible[i].AnimateIn(TimeSpan.FromMilliseconds(20 * i), animate);
         }
 
         private void Close()
@@ -138,8 +141,16 @@ namespace Cortinho.Overlay
         private static void HideIsland(IslandWindow window, bool animate) =>
             window.AnimateOut(animate, () => window.Hide());
 
+        private const double ColumnGap = 12;
+
         /// <summary>Arranjo A "Constelação" (PHASE-OVERLAY.md §3). Só o monitor primário por enquanto —
-        /// mesma divergência aceita já registrada na fase 1 (settings de monitor do overlay é fase futura).</summary>
+        /// mesma divergência aceita já registrada na fase 1 (settings de monitor do overlay é fase futura).
+        ///
+        /// Divergência dos offsets Y do §3: a tabela do spec (mic 206 / notif 286 / favoritos 502) assume
+        /// uma ilha de mic de ~80 DIPs, mas com o cabeçalho comum do §5 e o padding de 16 ela sai com
+        /// ~119 — com offsets fixos as ilhas da coluna esquerda se sobrepunham visivelmente. Aqui só o Y
+        /// da PRIMEIRA ilha de cada coluna vem do spec; as de baixo empilham pela altura real medida.
+        /// Isso deixa de importar na fase 3, quando o layout passa a ser arrastado e persistido.</summary>
         private void PositionIslands()
         {
             double screenWidth = SystemParameters.PrimaryScreenWidth;
@@ -148,23 +159,28 @@ namespace Cortinho.Overlay
             _gridIslandWindow.Left = (screenWidth - _gridIslandWindow.Width) / 2;
             _gridIslandWindow.Top = screenHeight - _gridIslandWindow.Height - 18;
 
-            _micIslandWindow.Left = 24;
-            _micIslandWindow.Top = 206;
-
-            _notifIslandWindow.Left = 24;
-            _notifIslandWindow.Top = 286;
-
-            _favIslandWindow.Left = 24;
-            _favIslandWindow.Top = 502;
-
-            _discordIslandWindow.Left = screenWidth - _discordIslandWindow.Width - 24;
-            _discordIslandWindow.Top = 206;
-
-            _perfIslandWindow.Left = screenWidth - _perfIslandWindow.Width - 24;
-            _perfIslandWindow.Top = 336;
-
             _configIslandWindow.Left = screenWidth - _configIslandWindow.Width - 24;
             _configIslandWindow.Top = 24;
+
+            StackColumn(24, 206, _micIslandWindow, _notifIslandWindow, _favIslandWindow);
+
+            double rightLeft = screenWidth - 264 - 24;
+            StackColumn(rightLeft, 206, _discordIslandWindow, _perfIslandWindow);
+        }
+
+        /// <summary>Empilha as ilhas visíveis de uma coluna a partir de (left, firstTop), com ColumnGap
+        /// entre elas. Ignora as escondidas (Discord/Desempenho somem quando não há provider).</summary>
+        private static void StackColumn(double left, double firstTop, params IslandWindow[] windows)
+        {
+            double top = firstTop;
+            foreach (var window in windows)
+            {
+                if (!window.IsVisible) continue;
+
+                window.Left = left;
+                window.Top = top;
+                top += window.ActualHeight + ColumnGap;
+            }
         }
 
         /// <summary>Chamado só de MainWindow.OnClosed (saída real do app pela bandeja) — libera o

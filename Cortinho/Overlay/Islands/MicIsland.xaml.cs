@@ -46,9 +46,10 @@ namespace Cortinho.Overlay.Islands
         {
             bool muted = _micService.IsMuted;
 
+            // O rótulo NÃO muda com o estado (§5.3 troca só cor e glifo) — trocar o texto por
+            // "Áudio mutado" alargava o botão e empurrava o medidor pra fora da ilha.
             MicOnIcon.Visibility = muted ? Visibility.Collapsed : Visibility.Visible;
             MicOffIcon.Visibility = muted ? Visibility.Visible : Visibility.Collapsed;
-            MicLabel.Text = muted ? "Mic mutado" : "Mic";
             MicButton.Background = muted ? ResourceBrush("DangerSoftBrush") : ResourceBrush("Surface2Brush");
             MicButton.BorderBrush = muted ? ResourceBrush("DangerBrush") : ResourceBrush("BorderSubtleBrush");
             MicLabel.Foreground = muted ? ResourceBrush("DangerBrush") : ResourceBrush("TextPrimaryBrush");
@@ -67,7 +68,6 @@ namespace Cortinho.Overlay.Islands
 
             AudioOnIcon.Visibility = muted ? Visibility.Collapsed : Visibility.Visible;
             AudioOffIcon.Visibility = muted ? Visibility.Visible : Visibility.Collapsed;
-            AudioLabel.Text = muted ? "Áudio mutado" : "Áudio";
             AudioButton.Background = muted ? ResourceBrush("DangerSoftBrush") : ResourceBrush("Surface2Brush");
             AudioButton.BorderBrush = muted ? ResourceBrush("DangerBrush") : ResourceBrush("BorderSubtleBrush");
             AudioLabel.Foreground = muted ? ResourceBrush("DangerBrush") : ResourceBrush("TextPrimaryBrush");
