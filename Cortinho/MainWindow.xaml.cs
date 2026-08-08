@@ -23,8 +23,9 @@ namespace Cortinho
         private List<ShortcutItem> _shortcuts = new();
         private DispatcherTimer? _statusResetTimer;
 
-        /// <summary>design_handoff_overlay fase 1 — setado de fora (App.xaml.cs) logo após a construção.
-        /// Se null ou a flag OpenOverlayOnHotkey estiver off, Ctrl+Alt+L continua abrindo esta janela.</summary>
+        /// <summary>design_handoff_overlay — setado de fora (App.xaml.cs) logo após a construção.
+        /// Desde a fase 5 é ele que o Ctrl+Alt+L abre; esta janela virou a superfície de gerenciamento,
+        /// alcançável só pela bandeja e pela ilha de engrenagem.</summary>
         public Overlay.OverlayController? Overlay { get; set; }
 
         public MainWindow()

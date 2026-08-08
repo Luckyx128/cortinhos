@@ -2,9 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Border Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-            BorderThickness="1" CornerRadius="{DynamicResource RadiusPill}" Padding="3">
+            BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}" Padding="3">
         <StackPanel Orientation="Horizontal">
-            <Border x:Name="LightBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusPill}"
+            <Border x:Name="LightBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusSm}"
                     Background="Transparent" Cursor="Hand" MouseLeftButtonDown="LightButton_Click">
                 <Viewbox Width="15" Height="15">
                     <Canvas Width="24" Height="24">
@@ -14,7 +14,7 @@
                     </Canvas>
                 </Viewbox>
             </Border>
-            <Border x:Name="DarkBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusPill}"
+            <Border x:Name="DarkBg" Width="28" Height="28" CornerRadius="{DynamicResource RadiusSm}"
                     Background="Transparent" Cursor="Hand" Margin="2,0,0,0" MouseLeftButtonDown="DarkButton_Click">
                 <Viewbox Width="15" Height="15">
                     <Canvas Width="24" Height="24">

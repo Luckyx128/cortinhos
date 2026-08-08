@@ -1,3 +1,4 @@
+using Cortinho.Models;
 using Cortinho.Native;
 using Cortinho.Overlay.Islands;
 using System.Collections.Generic;
@@ -8,12 +9,14 @@ namespace Cortinho.Overlay
 {
     /// <summary>Abre/fecha o overlay: scrim + ilhas, foco (PHASE-OVERLAY.md §6), stagger de entrada.
     /// Fase 2 completa: grid + as 6 ilhas "simples" (Config/Favoritos/Mic/Discord/Desempenho/Notificações)
-    /// + Busca — a única que tira foco do jogo, via IslandWindow.Activate()/Deactivate().</summary>
+    /// + Busca — a única que tira foco do jogo, via IslandWindow.Activate()/Deactivate().
+    /// Fase 3: modo de edição de layout (tecla L), arrastar/encaixar e overlay-layout.json.</summary>
     public class OverlayController
     {
         private readonly MainWindow _mainWindow;
 
         private readonly OverlayScrimWindow _scrim = new();
+        private readonly OverlayEditBarWindow _editBar = new();
         private readonly Services.GlobalInputWatcher _inputWatcher = new();
 
         // Lazy, nunca resolvido no construtor: a NotchWindow só existe depois que App.OnStartup retorna
@@ -45,21 +48,41 @@ namespace Cortinho.Overlay
         private readonly ConfigIsland _configContent = new();
         private readonly IslandWindow _configIslandWindow;
 
+        private readonly List<IslandWindow> _allIslands;
+
         private bool _isOpen;
+        private bool _isEditMode;
         private IntPtr _previousForegroundWindow;
+
+        /// <summary>Layout salvo em disco (null = arranjo A embutido). Recarregado a cada Open pra
+        /// refletir um "Restaurar" feito numa sessão anterior.</summary>
+        private OverlayLayout? _layout;
+
+        /// <summary>Posições acumuladas durante o modo de edição, ainda não persistidas — só viram
+        /// disco no "Salvar" (§9). Sair sem salvar descarta.</summary>
+        private readonly Dictionary<string, OverlayIslandLayout> _pendingLayout = new();
 
         public OverlayController(MainWindow mainWindow)
         {
             _mainWindow = mainWindow;
 
-            _searchIslandWindow = new IslandWindow(_searchContent, 460, double.NaN);
-            _gridIslandWindow = new IslandWindow(_gridContent, 848, 364);
-            _micIslandWindow = new IslandWindow(_micContent, 264, double.NaN);
-            _notifIslandWindow = new IslandWindow(_notifContent, 264, 200);
-            _favIslandWindow = new IslandWindow(_favContent, 264, double.NaN);
-            _discordIslandWindow = new IslandWindow(_discordContent, 264, double.NaN);
-            _perfIslandWindow = new IslandWindow(_perfContent, 264, double.NaN);
-            _configIslandWindow = new IslandWindow(_configContent, 44, 44, padding: 6);
+            _searchIslandWindow = new IslandWindow(_searchContent, "search", "Busca", 460, double.NaN);
+            _gridIslandWindow = new IslandWindow(_gridContent, "grid", "Atalhos", 848, 364);
+            _micIslandWindow = new IslandWindow(_micContent, "mic", "Mic", 264, double.NaN);
+            _notifIslandWindow = new IslandWindow(_notifContent, "notif", "Notificações", 264, 200);
+            _favIslandWindow = new IslandWindow(_favContent, "quick", "Favoritos", 264, double.NaN);
+            _discordIslandWindow = new IslandWindow(_discordContent, "discord", "Discord", 264, double.NaN);
+            _perfIslandWindow = new IslandWindow(_perfContent, "perf", "Desempenho", 264, double.NaN);
+            _configIslandWindow = new IslandWindow(_configContent, "settings", "Config", 44, 44, padding: 6);
+
+            _allIslands = new List<IslandWindow>
+            {
+                _searchIslandWindow, _gridIslandWindow, _micIslandWindow, _notifIslandWindow,
+                _favIslandWindow, _discordIslandWindow, _perfIslandWindow, _configIslandWindow,
+            };
+
+            foreach (var island in _allIslands)
+                island.Dragged += OnIslandDragged;
 
             _configContent.ConfigClicked += () =>
             {
@@ -82,7 +105,17 @@ namespace Cortinho.Overlay
             // devolve o foco à janela salva é o próprio Close(), logo abaixo.
             _searchIslandWindow.Deactivated += (_, _) => _searchIslandWindow.Deactivate();
 
-            _inputWatcher.EscapePressed += () => { if (_isOpen) Close(); };
+            _editBar.SaveRequested += () => ExitEditMode(save: true);
+            _editBar.RestoreRequested += RestoreArrangement;
+
+            _inputWatcher.EscapePressed += () =>
+            {
+                if (!_isOpen) return;
+                if (_isEditMode) ExitEditMode(save: false); // Esc sai do modo de edição antes de fechar o overlay
+                else Close();
+            };
+
+            _inputWatcher.KeyPressed += OnGlobalKeyPressed;
         }
 
         public void Toggle()
@@ -98,6 +131,9 @@ namespace Cortinho.Overlay
 
             _previousForegroundWindow = NativeMethods.GetForegroundWindow();
             Notch?.SetOverlayOpen(true);
+
+            _layout = OverlayLayoutStore.Load();
+            _pendingLayout.Clear();
 
             // Reset() só dispara QueryChanged("") (que filtra o grid de volta) se havia texto de uma
             // sessão anterior — no primeiro Open() a TextBox já está vazia e nada dispara, por isso o
@@ -150,6 +186,8 @@ namespace Cortinho.Overlay
 
             bool animate = SystemParameters.ClientAreaAnimation;
 
+            if (_isEditMode) ExitEditMode(save: false);
+
             _perfContent.Stop();
             _discordContent.Stop();
             Notch?.SetOverlayOpen(false);
@@ -158,14 +196,10 @@ namespace Cortinho.Overlay
             // do fechamento (Esc/hotkey), antes do Deactivated ter chance de disparar sozinho.
             _searchIslandWindow.Deactivate();
 
-            HideIsland(_searchIslandWindow, animate);
-            HideIsland(_gridIslandWindow, animate);
-            HideIsland(_micIslandWindow, animate);
-            HideIsland(_notifIslandWindow, animate);
-            HideIsland(_favIslandWindow, animate);
-            if (_discordIslandWindow.IsVisible) HideIsland(_discordIslandWindow, animate);
-            if (_perfIslandWindow.IsVisible) HideIsland(_perfIslandWindow, animate);
-            HideIsland(_configIslandWindow, animate);
+            foreach (var island in _allIslands)
+            {
+                if (island.IsVisible) HideIsland(island, animate);
+            }
 
             _scrim.FadeOut(animate, () =>
             {
@@ -178,6 +212,88 @@ namespace Cortinho.Overlay
         private static void HideIsland(IslandWindow window, bool animate) =>
             window.AnimateOut(animate, () => window.Hide());
 
+        // ---- Modo de edição de layout (PHASE-OVERLAY.md §9)
+
+        private const uint VK_L = 0x4C;
+
+        /// <summary>Entrada no modo de edição não está especificada no handoff — o protótipo usa a tecla
+        /// L ("Teclas: L editar layout", README) e é isso que está implementado aqui. Ignorada enquanto
+        /// a busca tem foco, senão digitar "l" numa consulta entraria em modo de edição.</summary>
+        private void OnGlobalKeyPressed(uint vkCode)
+        {
+            if (!_isOpen || vkCode != VK_L) return;
+            if (_searchIslandWindow.IsActive) return;
+
+            if (_isEditMode) ExitEditMode(save: false);
+            else EnterEditMode();
+        }
+
+        private void EnterEditMode()
+        {
+            if (_isEditMode) return;
+            _isEditMode = true;
+
+            bool animate = SystemParameters.ClientAreaAnimation;
+
+            _scrim.SetEditMode(true, animate);
+            foreach (var island in _allIslands)
+                island.SetEditMode(true);
+
+            _editBar.Show();
+            _editBar.CenterAtBottom();
+        }
+
+        private void ExitEditMode(bool save)
+        {
+            if (!_isEditMode) return;
+            _isEditMode = false;
+
+            bool animate = SystemParameters.ClientAreaAnimation;
+
+            if (save) SaveLayout();
+            else _pendingLayout.Clear();
+
+            _scrim.SetEditMode(false, animate);
+            foreach (var island in _allIslands)
+                island.SetEditMode(false);
+
+            _editBar.Hide();
+
+            if (!save) PositionIslands(); // descarta os arrastes desta sessão de edição
+        }
+
+        private void OnIslandDragged(IslandWindow island)
+        {
+            _pendingLayout[island.IslandId] = OverlayAnchors.Derive(
+                island.IslandLeft, island.IslandTop, island.IslandWidth, island.IslandHeight,
+                SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+        }
+
+        private void SaveLayout()
+        {
+            var layout = _layout ?? new OverlayLayout();
+
+            // Só as ilhas efetivamente arrastadas entram/são atualizadas — as intocadas continuam
+            // seguindo o arranjo A embutido, o que mantém o arquivo pequeno e legível à mão.
+            foreach (var (id, entry) in _pendingLayout)
+                layout.Islands[id] = entry;
+
+            layout.Version = OverlayLayout.CurrentVersion;
+            layout.Monitor = System.Windows.Forms.Screen.PrimaryScreen?.DeviceName ?? "";
+
+            OverlayLayoutStore.Save(layout);
+            _layout = layout;
+            _pendingLayout.Clear();
+        }
+
+        private void RestoreArrangement()
+        {
+            OverlayLayoutStore.Reset();
+            _layout = null;
+            _pendingLayout.Clear();
+            PositionIslands();
+        }
+
         private const double ColumnGap = 12;
 
         /// <summary>Arranjo A "Constelação" (PHASE-OVERLAY.md §3). Só o monitor primário por enquanto —
@@ -187,25 +303,41 @@ namespace Cortinho.Overlay
         /// uma ilha de mic de ~80 DIPs, mas com o cabeçalho comum do §5 e o padding de 16 ela sai com
         /// ~119 — com offsets fixos as ilhas da coluna esquerda se sobrepunham visivelmente. Aqui só o Y
         /// da PRIMEIRA ilha de cada coluna vem do spec; as de baixo empilham pela altura real medida.
-        /// Isso deixa de importar na fase 3, quando o layout passa a ser arrastado e persistido.</summary>
+        ///
+        /// O layout salvo (fase 3) entra POR CIMA disso, ilha a ilha: quem nunca foi arrastada continua
+        /// no arranjo embutido, então um overlay-layout.json parcial nunca deixa uma ilha sem posição.</summary>
         private void PositionIslands()
         {
             double screenWidth = SystemParameters.PrimaryScreenWidth;
             double screenHeight = SystemParameters.PrimaryScreenHeight;
 
-            _searchIslandWindow.Left = (screenWidth - _searchIslandWindow.Width) / 2;
-            _searchIslandWindow.Top = 140;
+            _searchIslandWindow.SetIslandPosition((screenWidth - _searchIslandWindow.IslandWidth) / 2, 140);
 
-            _gridIslandWindow.Left = (screenWidth - _gridIslandWindow.Width) / 2;
-            _gridIslandWindow.Top = screenHeight - _gridIslandWindow.Height - 18;
+            _gridIslandWindow.SetIslandPosition(
+                (screenWidth - _gridIslandWindow.IslandWidth) / 2,
+                screenHeight - _gridIslandWindow.IslandHeight - 18);
 
-            _configIslandWindow.Left = screenWidth - _configIslandWindow.Width - 24;
-            _configIslandWindow.Top = 24;
+            _configIslandWindow.SetIslandPosition(screenWidth - _configIslandWindow.IslandWidth - 24, 24);
 
             StackColumn(24, 206, _micIslandWindow, _notifIslandWindow, _favIslandWindow);
+            StackColumn(screenWidth - 264 - 24, 206, _discordIslandWindow, _perfIslandWindow);
 
-            double rightLeft = screenWidth - 264 - 24;
-            StackColumn(rightLeft, 206, _discordIslandWindow, _perfIslandWindow);
+            ApplySavedLayout(screenWidth, screenHeight);
+        }
+
+        private void ApplySavedLayout(double screenWidth, double screenHeight)
+        {
+            if (_layout is null) return;
+
+            foreach (var island in _allIslands)
+            {
+                if (!_layout.Islands.TryGetValue(island.IslandId, out var entry)) continue;
+
+                var (left, top) = OverlayAnchors.Resolve(
+                    entry, island.IslandWidth, island.IslandHeight, screenWidth, screenHeight);
+
+                island.SetIslandPosition(left, top);
+            }
         }
 
         /// <summary>Empilha as ilhas visíveis de uma coluna a partir de (left, firstTop), com ColumnGap
@@ -217,9 +349,8 @@ namespace Cortinho.Overlay
             {
                 if (!window.IsVisible) continue;
 
-                window.Left = left;
-                window.Top = top;
-                top += window.ActualHeight + ColumnGap;
+                window.SetIslandPosition(left, top);
+                top += window.IslandHeight + ColumnGap;
             }
         }
 

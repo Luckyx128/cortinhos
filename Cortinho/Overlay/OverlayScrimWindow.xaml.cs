@@ -30,6 +30,23 @@ namespace Cortinho.Overlay
                       | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE);
         }
 
+        /// <summary>Modo de edição (§9) — troca a vinheta pelo escurecimento uniforme.</summary>
+        public void SetEditMode(bool on, bool animate)
+        {
+            double target = on ? 1 : 0;
+
+            if (!animate)
+            {
+                UniformLayer.Opacity = target;
+                return;
+            }
+
+            UniformLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(target, new Duration(TimeSpan.FromMilliseconds(220)))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+        }
+
         public void FadeIn(bool animate)
         {
             if (!animate)

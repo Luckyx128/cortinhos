@@ -173,7 +173,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border x:Name="OpenPill" Background="{DynamicResource AccentBrush}" CornerRadius="{DynamicResource RadiusPill}"
+                                <Border x:Name="OpenPill" Background="{DynamicResource AccentBrush}" CornerRadius="{DynamicResource RadiusLg}"
                                         Padding="14,7" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,44"
                                         Opacity="0" RenderTransformOrigin="0.5,0.5">
                                     <Border.RenderTransform><TranslateTransform x:Name="OpenPillTranslate" Y="6"/></Border.RenderTransform>

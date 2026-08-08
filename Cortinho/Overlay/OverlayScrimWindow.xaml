@@ -12,12 +12,17 @@
     <!-- Vinheta — PHASE-OVERLAY.md §4, com a borda clareada (divergência pedida ao vivo: o spec original
          pede alpha .86 na borda, achado escuro demais nas bordas — reduzido pra .55). CSS dá diâmetro
          (62%/55%), WPF RadialGradientBrush dá raio, daí /2. -->
-    <Rectangle>
-        <Rectangle.Fill>
-            <RadialGradientBrush Center="0.5,0.48" GradientOrigin="0.5,0.48" RadiusX="0.31" RadiusY="0.275">
-                <GradientStop Color="#1A06080B" Offset="0"/>
-                <GradientStop Color="#8C06080B" Offset="1"/>
-            </RadialGradientBrush>
-        </Rectangle.Fill>
-    </Rectangle>
+    <Grid>
+        <Rectangle x:Name="VignetteLayer">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0.5,0.48" GradientOrigin="0.5,0.48" RadiusX="0.31" RadiusY="0.275">
+                    <GradientStop Color="#1A06080B" Offset="0"/>
+                    <GradientStop Color="#8C06080B" Offset="1"/>
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- Escurecimento uniforme do modo de edição (§9): "o usuário está mexendo em layout, não jogando" -->
+        <Rectangle x:Name="UniformLayer" Fill="#9E06080B" Opacity="0"/>
+    </Grid>
 </Window>
