@@ -429,18 +429,47 @@
                     <ItemsControl x:Name="NotificationsItems">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="0,0,0,4" Padding="9,7" CornerRadius="{DynamicResource RadiusSm}"
-                                        Background="{DynamicResource Surface2Brush}">
+                                <Border Margin="0,0,0,4" Padding="10,8" CornerRadius="{DynamicResource RadiusSm}"
+                                        Background="{DynamicResource NotchFillBrush}"
+                                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <Border Grid.Column="0" Width="18" Height="18" CornerRadius="3"
-                                                Background="#33FFFFFF" Margin="0,1,8,0" VerticalAlignment="Top">
-                                            <Image Source="{Binding Icon}" Width="14" Height="14"
-                                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="3"
+                                                Background="{DynamicResource HoverOverlayBrush}" Margin="0,1,8,0" VerticalAlignment="Top">
+                                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Image Source="{Binding Icon}" Width="14" Height="14"
+                                                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
+                                                    <Image.Style>
+                                                        <Style TargetType="Image">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Image.Style>
+                                                </Image>
+                                                <Viewbox Width="12" Height="12">
+                                                    <Viewbox.Style>
+                                                        <Style TargetType="Viewbox">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Viewbox.Style>
+                                                    <Path Data="{Binding VectorIcon}"
+                                                          Stroke="{Binding VectorBrush}" StrokeThickness="1.5"
+                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                </Viewbox>
+                                            </Grid>
                                         </Border>
 
                                         <StackPanel Grid.Column="1">

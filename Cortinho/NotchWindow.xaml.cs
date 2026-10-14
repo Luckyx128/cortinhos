@@ -53,6 +53,7 @@ namespace Cortinho
         // Ícones de Mic para OSD
         private const string MicOnIconPath = "M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z M17 7h-3m3 4h-3m6 0a8 8 0 0 1-8 8m0 0a8 8 0 0 1-8-8m8 8v3m0 0h3m-3 0H9";
         private const string MicOffIconPath = "m2 2l20 20M4 11a8 8 0 0 0 8 8m0 0c1.954 0 3.745-.7 5.135-1.865M12 19v3m0 0h3m-3 0H9m11-11c0 1.651-.5 3.186-1.358 4.46m-1.634-8.464c0-2.761-2.239-4.98-5-4.98c-1.869 0-3.47.965-4.328 2.484m9.328 2.496l-3.028.012m3.028-.012v4.008m-10-4.008v4.02a5 5 0 0 0 5 5c1.135 0 2.165-.39 3.004-1.028m1.435-1.728c.358-.69.56-1.413.56-2.244v-.012m-2.824 0h2.825";
+        private const string SuccessIconPath = "M4 12.5 L9.5 17.5 L20 6.5";
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -114,6 +115,8 @@ namespace Cortinho
 
             ShortcutLauncherService.LaunchFailed += msg =>
                 Dispatcher.Invoke(() => ShowError(msg));
+
+            NotificationIpcService.NotificationReceived += OnIpcNotificationReceived;
 
             Width = GetCompactTargetWidth();
             Left = GetLeftForAnchor(_anchor, Width);
@@ -331,8 +334,13 @@ namespace Cortinho
             double targetWidth = 176;
             AnimateWidth(targetWidth);
 
+            StartStatusAutoRecede(2.4);
+        }
+
+        private void StartStatusAutoRecede(double seconds)
+        {
             _statusAutoRecedeTimer?.Stop();
-            _statusAutoRecedeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.4) };
+            _statusAutoRecedeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(seconds > 0 ? seconds : 3.5) };
             _statusAutoRecedeTimer.Tick += (_, _) =>
             {
                 _statusAutoRecedeTimer?.Stop();
@@ -370,34 +378,74 @@ namespace Cortinho
             double targetWidth = Math.Max(GetCompactTargetWidth(), Math.Min(320, Math.Max(160, label.Length * 7.5 + 46)));
             AnimateWidth(targetWidth);
 
-            _statusAutoRecedeTimer?.Stop();
-            _statusAutoRecedeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.6) };
-            _statusAutoRecedeTimer.Tick += (_, _) =>
-            {
-                _statusAutoRecedeTimer?.Stop();
-                ClearStatus();
-                _isRevealedForOsd = false;
-                SyncCompactSize();
+            StartStatusAutoRecede(2.6);
+        }
 
-                if (_isManuallyHidden)
-                {
-                    AnimateFadeOut();
-                }
-                else if (!NotchRoot.IsMouseOver)
-                {
-                    ResetAutoHideTimer(0.8);
-                }
-            };
-            _statusAutoRecedeTimer.Start();
+        public void ShowNotificationAlert(string label, string kind, double durationSeconds)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ShowNotificationAlert(label, kind, durationSeconds));
+                return;
+            }
+
+            // Regra do Design System: se a Notch estiver expandida (_isExpanded == true), NÃO encolher a largura de 400px!
+            if (_isExpanded) return;
+
+            if (_statusKind == StatusKind.Error && !kind.Equals("error", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (kind.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                var fg = ResourceBrush("SuccessBrush");
+                var scb = fg as SolidColorBrush;
+                var bg = scb != null
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x26, scb.Color.R, scb.Color.G, scb.Color.B))
+                    : new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x26, 0x22, 0xC5, 0x5E));
+
+                SetStatus(StatusKind.Alert, label, SuccessIconPath, 1.0, "", 0.0, fg, bg, isStroke: true);
+            }
+            else if (kind.Equals("error", StringComparison.OrdinalIgnoreCase))
+            {
+                var fg = ResourceBrush("DangerBrush");
+                var bg = ResourceBrush("DangerSoftBrush");
+                SetStatus(StatusKind.Error, label, ErrorIconL1, 0.5, ErrorIconL2, 1, fg, bg, isStroke: false);
+            }
+            else
+            {
+                var fg = ResourceBrush("AccentBrush");
+                var bg = ResourceBrush("AccentSoftBrush");
+                SetStatus(StatusKind.Alert, label, AlertIconL1, 0.5, AlertIconL2, 1, fg, bg, isStroke: false);
+            }
+
+            _isRevealedForOsd = true;
+            RevealFromAutoHide(forOsd: true);
+
+            double targetWidth = Math.Max(GetCompactTargetWidth(), Math.Min(320, Math.Max(160, label.Length * 7.5 + 46)));
+            AnimateWidth(targetWidth);
+
+            StartStatusAutoRecede(durationSeconds);
         }
 
         public void ShowError(string label)
         {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ShowError(label));
+                return;
+            }
+
+            // Regra do Design System: se a Notch estiver expandida (_isExpanded == true), NÃO encolher a largura de 400px!
+            if (_isExpanded) return;
+
             _statusAutoRecedeTimer?.Stop(); // error nunca auto-esconde — só no clique (StatusLabel_Click)
             SetStatus(StatusKind.Error, label, ErrorIconL1, 0.5, ErrorIconL2, 1);
             _isRevealedForOsd = true;
             RevealFromAutoHide(forOsd: true);
-            AnimateWidth(Math.Max(GetCompactTargetWidth(), 160));
+            double targetWidth = Math.Max(GetCompactTargetWidth(), Math.Min(320, Math.Max(160, label.Length * 7.5 + 46)));
+            AnimateWidth(targetWidth);
         }
 
         public void ShowProgress(double percent)
@@ -641,6 +689,123 @@ namespace Cortinho
             public string Body { get; init; } = "";
             public string TimeLabel { get; init; } = "";
             public BitmapImage? Icon { get; init; }
+            public string? VectorIcon { get; init; }
+            public Brush? VectorBrush { get; init; }
+        }
+
+        private readonly List<NotificationDisplayItem> _customNotificationHistory = new();
+        private List<NotificationDisplayItem> _lastSystemNotificationItems = new();
+
+        private void OnIpcNotificationReceived(NotificationPayload payload)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnIpcNotificationReceived(payload));
+                return;
+            }
+
+            // Tocar feedback sonoro suave do sistema (ex: SystemSounds.Asterisk)
+            try
+            {
+                if (payload.Kind.Equals("error", StringComparison.OrdinalIgnoreCase))
+                    System.Media.SystemSounds.Hand.Play();
+                else
+                    System.Media.SystemSounds.Asterisk.Play();
+            }
+            catch { }
+
+            // Adicionar o item recebido à lista do NotificationsPanel da Notch para que o usuário possa visualizá-lo no histórico
+            AddNotificationToHistory(payload);
+
+            // Respeitar rigorosamente a regra do Design System: se a Notch estiver expandida (_isExpanded == true), NÃO encolher a largura de 400px!
+            if (_isExpanded)
+            {
+                return;
+            }
+
+            // Se a Notch estiver recolhida/em auto-hide: revelar suavemente, permanecer pelo tempo especificado em payload.DurationSeconds (padrão 3.5s) e recolher automaticamente
+            double duration = payload.DurationSeconds ?? 3.5;
+
+            if (payload.Kind.Equals("error", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowError(payload.Message);
+                if (payload.DurationSeconds.HasValue && payload.DurationSeconds.Value > 0)
+                {
+                    StartStatusAutoRecede(payload.DurationSeconds.Value);
+                }
+            }
+            else if (payload.Kind.Equals("progress", StringComparison.OrdinalIgnoreCase) && payload.Progress.HasValue)
+            {
+                ShowProgress(payload.Progress.Value);
+            }
+            else
+            {
+                ShowNotificationAlert(payload.Message, payload.Kind, duration);
+            }
+        }
+
+        private void AddNotificationToHistory(NotificationPayload payload)
+        {
+            string title = !string.IsNullOrWhiteSpace(payload.Title)
+                ? payload.Title
+                : (!string.IsNullOrWhiteSpace(payload.Source) ? payload.Source : (payload.Kind.Equals("error", StringComparison.OrdinalIgnoreCase) ? "Erro" : "Notificação"));
+
+            string vectorIcon;
+            Brush vectorBrush;
+
+            if (payload.Kind.Equals("error", StringComparison.OrdinalIgnoreCase))
+            {
+                vectorIcon = "M18 6L6 18M6 6l12 12";
+                vectorBrush = ResourceBrush("DangerBrush");
+            }
+            else if (payload.Kind.Equals("success", StringComparison.OrdinalIgnoreCase))
+            {
+                vectorIcon = SuccessIconPath;
+                vectorBrush = ResourceBrush("SuccessBrush");
+            }
+            else
+            {
+                vectorIcon = "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0";
+                vectorBrush = ResourceBrush("AccentBrush");
+            }
+
+            var item = new NotificationDisplayItem
+            {
+                Title = title,
+                Body = payload.Message,
+                TimeLabel = DateTime.Now.ToString("HH:mm"),
+                VectorIcon = vectorIcon,
+                VectorBrush = vectorBrush
+            };
+
+            _customNotificationHistory.Insert(0, item);
+            if (_customNotificationHistory.Count > 20)
+            {
+                _customNotificationHistory.RemoveAt(_customNotificationHistory.Count - 1);
+            }
+
+            UpdateNotificationsDisplay();
+        }
+
+        private void UpdateNotificationsDisplay(List<NotificationDisplayItem>? systemItems = null)
+        {
+            if (systemItems != null)
+            {
+                _lastSystemNotificationItems = systemItems;
+            }
+
+            var combined = new List<NotificationDisplayItem>();
+            combined.AddRange(_customNotificationHistory);
+            combined.AddRange(_lastSystemNotificationItems);
+
+            var displayItems = combined.Take(5).ToList();
+            NotificationsItems.ItemsSource = displayItems;
+            NoNotificationsLabel.Visibility = displayItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            _notificationCount = combined.Count;
+            UpdateNotificationSlot();
+
+            NotificationsPanel.Visibility = Visibility.Visible;
         }
 
         private async Task InitializeNotificationsAsync()
@@ -660,10 +825,10 @@ namespace Cortinho
             var items = await _notificationService.GetNotificationsAsync();
             int previousCount = _notificationCount;
 
-            var displayItems = new List<NotificationDisplayItem>();
-            foreach (var item in items.Take(3))
+            var systemItems = new List<NotificationDisplayItem>();
+            foreach (var item in items.Take(5))
             {
-                displayItems.Add(new NotificationDisplayItem
+                systemItems.Add(new NotificationDisplayItem
                 {
                     Title = item.Title,
                     Body = item.Body,
@@ -672,14 +837,10 @@ namespace Cortinho
                 });
             }
 
-            NotificationsItems.ItemsSource = displayItems;
-            NoNotificationsLabel.Visibility = displayItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-
-            _notificationCount = items.Count;
-            UpdateNotificationSlot();
+            UpdateNotificationsDisplay(systemItems);
 
             // Notificação nova de verdade (contagem subiu), não uma removida — vira alert transitório na pill.
-            if (_notificationCount > previousCount && items.Count > 0)
+            if (_notificationCount > previousCount && items.Count > 0 && !_isExpanded)
                 ShowAlert(items[0].Title);
         }
 
@@ -730,6 +891,7 @@ namespace Cortinho
 
         private void ClearNotifications_Click(object sender, MouseButtonEventArgs e)
         {
+            _customNotificationHistory.Clear();
             _notificationService.ClearAll();
             _ = RefreshNotificationsAsync();
         }
@@ -754,6 +916,7 @@ namespace Cortinho
 
         protected override void OnClosed(EventArgs e)
         {
+            NotificationIpcService.NotificationReceived -= OnIpcNotificationReceived;
             var hwnd = new WindowInteropHelper(this).Handle;
             NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
             NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_TOGGLE_NOTCH);
