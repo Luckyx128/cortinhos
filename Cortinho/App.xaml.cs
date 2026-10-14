@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
@@ -22,12 +22,20 @@ namespace Cortinho
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            if (HandleCliCommand(e.Args))
+            {
+                Shutdown(0);
+                return;
+            }
+
             Services.ThemeService.ApplySaved(); // antes do base.OnStartup — StartupUri cria a NotchWindow já aqui dentro
             ApplySystemAccent();
             base.OnStartup(e);
 
             if (!EnsurePackageIdentity())
                 return; // relançou como processo com identidade e está saindo — não cria UI nesse processo
+
+            Services.NotificationIpcService.Start();
 
             _mainWindow = new MainWindow(); // criada oculta — só aparece via tray, hotkey Ctrl+Alt+L (se a flag de overlay estiver off) ou clique no ícone
             _mainWindow.Overlay = new Overlay.OverlayController(_mainWindow); // design_handoff_overlay — é quem o Ctrl+Alt+L abre desde a fase 5
@@ -106,8 +114,64 @@ namespace Cortinho
         }
         protected override void OnExit(ExitEventArgs e)
         {
+            Services.NotificationIpcService.Stop();
             _trayIcon?.Dispose();
             base.OnExit(e);
+        }
+
+        private static bool HandleCliCommand(string[] args)
+        {
+            if (args.Length == 0 || !string.Equals(args[0], "notify", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string message = "";
+            string? title = null;
+            string kind = "alert";
+            double? progress = null;
+            double? duration = null;
+            string? source = "CLI";
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                var arg = args[i];
+                if (arg.Equals("--title", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    title = args[++i];
+                }
+                else if (arg.Equals("--kind", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    kind = args[++i];
+                }
+                else if (arg.Equals("--progress", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    if (double.TryParse(args[++i], System.Globalization.CultureInfo.InvariantCulture, out var p))
+                        progress = p;
+                }
+                else if (arg.Equals("--duration", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    if (double.TryParse(args[++i], System.Globalization.CultureInfo.InvariantCulture, out var d))
+                        duration = d;
+                }
+                else if (arg.Equals("--source", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    source = args[++i];
+                }
+                else if (string.IsNullOrEmpty(message))
+                {
+                    message = arg;
+                }
+            }
+
+            var payload = new Services.NotificationPayload(
+                message: message,
+                title: title,
+                kind: kind,
+                progress: progress,
+                durationSeconds: duration,
+                source: source);
+
+            _ = Services.NotificationIpcService.SendNotificationAsync(payload).GetAwaiter().GetResult();
+            return true;
         }
 
         /// <returns>true se este processo já tem (ou passou a ter) identidade de pacote e deve seguir com a UI normal; false se relançou e este processo deve encerrar.</returns>
