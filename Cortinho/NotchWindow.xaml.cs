@@ -608,7 +608,6 @@ namespace Cortinho
         {
             bool tracking = _discordSettings.Enabled;
             DiscordSlot.Visibility = tracking ? Visibility.Visible : Visibility.Collapsed;
-            TopDiscordPill.Visibility = tracking ? Visibility.Visible : Visibility.Collapsed;
 
             if (tracking)
             {
@@ -619,7 +618,6 @@ namespace Cortinho
                 string? app = _discordWatcher?.CurrentAppName;
                 DiscordSlotUnderline.Visibility = Visibility.Visible;
                 DiscordCaption.Text = app ?? "Discord";
-                TopDiscordCaption.Text = app ?? "Discord";
             }
             else
             {
@@ -947,10 +945,6 @@ namespace Cortinho
             MicToggleLabel.Foreground = ResourceBrush(isMuted ? "DangerBrush" : "TextPrimaryBrush");
             MicToggleState.Text = isMuted ? "OFF" : "ON";
 
-            TopMicOnIcon.Visibility = isMuted ? Visibility.Collapsed : Visibility.Visible;
-            TopMicOffIcon.Visibility = isMuted ? Visibility.Visible : Visibility.Collapsed;
-            TopMicCaption.Text = isMuted ? "Mic mutado" : "Mic ativo";
-
             if (_isOverlayOpen) UpdateIdentityStatusDot();
         }
 
@@ -1181,19 +1175,19 @@ namespace Cortinho
 
         private double GetExpandedTargetHeight()
         {
-            // Altura base com margens internas e TopStatusRow
-            double height = 260;
+            // Altura base proporcional às duas colunas (Microfone e Notificações)
+            double height = 230;
 
-            // Se o DiscordPanel estiver visível, precisa de mais espaço vertical para acomodá-lo
-            if (DiscordPanel.Visibility == Visibility.Visible)
+            // Se existirem atalhos rápidos visíveis na coluna da esquerda
+            if (ShortcutsPanel.Visibility == Visibility.Visible)
             {
                 height += 56;
             }
 
-            // Se existirem atalhos rápidos ou notificações ocupando altura vertical
-            if (ShortcutsPanel.Visibility == Visibility.Visible)
+            // Se o DiscordPanel estiver visível no rodapé
+            if (DiscordPanel.Visibility == Visibility.Visible)
             {
-                height += 24;
+                height += 56;
             }
 
             return Math.Max(ExpandedHeight, height);
