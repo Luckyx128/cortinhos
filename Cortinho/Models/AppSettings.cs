@@ -6,6 +6,9 @@ namespace Cortinho.Models
         public string NotchAnchor { get; set; } = "Center";
         public string NotchMonitorDeviceName { get; set; } = "";
 
+        // Microfone de entrada específico por ID ou vazio para padrão do sistema (Role.Multimedia, DataFlow.Capture)
+        public string MicDeviceId { get; set; } = "";
+
         // Config (fase 5) — hotkey regravável do launcher/overlay (Ctrl+Alt+<Letra> por enquanto,
         // mesma limitação de FormatHotkey em ShortcutTileDisplayFactory: só dígitos/letras).
         public uint LauncherHotkeyModifiers { get; set; } = 0x0002 | 0x0001; // MOD_CONTROL | MOD_ALT

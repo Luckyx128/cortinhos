@@ -316,6 +316,8 @@ namespace Cortinho
         private bool _loadingConfig;
         private bool _capturingHotkey;
 
+        public System.Windows.Controls.ComboBox MicDeviceComboBox => MicDeviceField.Combo;
+
         private void LoadConfig()
         {
             _loadingConfig = true;
@@ -328,6 +330,22 @@ namespace Cortinho
 
             var settings = AppSettingsStore.Load();
             UpdateHotkeyBadges(settings.LauncherHotkeyModifiers, settings.LauncherHotkeyKey);
+
+            var micOptions = new List<Controls.FormSelectOption>
+            {
+                new() { Value = "", Label = "Padrão do sistema" }
+            };
+            foreach (var (id, name) in MicService.GetCaptureDevices())
+            {
+                micOptions.Add(new Controls.FormSelectOption { Value = id, Label = name });
+            }
+            MicDeviceField.Options = micOptions;
+            string selectedMic = settings.MicDeviceId ?? "";
+            if (!string.IsNullOrEmpty(selectedMic) && !micOptions.Any(o => (string)o.Value == selectedMic))
+            {
+                selectedMic = "";
+            }
+            MicDeviceField.SelectedValue = selectedMic;
 
             NotchAnchorField.Options = new List<Controls.FormSelectOption>
             {
@@ -368,6 +386,15 @@ namespace Cortinho
         {
             DiscordClientIdField.IsEnabled = DiscordEnabledCheck.IsChecked == true;
             SaveDiscordSettings();
+        }
+
+        private void MicDeviceField_SelectionChanged(object sender, EventArgs e)
+        {
+            if (_loadingConfig) return;
+            var settings = AppSettingsStore.Load();
+            settings.MicDeviceId = MicDeviceField.SelectedValue as string ?? "";
+            AppSettingsStore.Save(settings);
+            MicService.NotifyGlobalDeviceChanged(settings.MicDeviceId);
         }
 
         private void NotchAnchorField_SelectionChanged(object sender, EventArgs e)
