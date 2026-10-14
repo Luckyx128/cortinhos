@@ -44,7 +44,7 @@
     <FontFamily x:Key="FontDisplayMedium">./Fonts/#Chakra Petch Medium</FontFamily>
     <FontFamily x:Key="FontDisplaySemiBold">./Fonts/#Chakra Petch SemiBold</FontFamily>
 
-    <FontFamily x:Key="FontBody">./Fonts/#IBM Plex Sans</FontFamily>
+    <FontFamily x:Key="FontBody">./Fonts/#IBM Plex Mono</FontFamily>
 
     <FontFamily x:Key="FontMono">./Fonts/#IBM Plex Mono</FontFamily>
     <FontFamily x:Key="FontMonoMedium">./Fonts/#IBM Plex Mono Medium</FontFamily>
