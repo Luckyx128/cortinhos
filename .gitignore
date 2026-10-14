@@ -24,3 +24,7 @@
 *.tlog
 *.cache
 /design_handoff_notch
+
+# Maestri
+.maestri/
+
