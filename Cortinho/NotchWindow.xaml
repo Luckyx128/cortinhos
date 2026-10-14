@@ -306,13 +306,12 @@
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,6,0" VerticalAlignment="Top">
                 <Border x:Name="MicToggleButton"
-        Height="36"
-        CornerRadius="4"
-        Padding="10,0"
-        Cursor="Hand"
-        ToolTip="Clique: mutar/desmutar&#x0a;Clique direito: selecionar microfone"
-        MouseLeftButtonDown="MicToggleButton_Click"
-        MouseRightButtonUp="MicToggleButton_MouseRightButtonUp">
+                        CornerRadius="4"
+                        Padding="10,8"
+                        Cursor="Hand"
+                        ToolTip="Clique: mutar/desmutar&#x0a;Clique direito ou no nome: selecionar microfone"
+                        MouseLeftButtonDown="MicToggleButton_Click"
+                        MouseRightButtonUp="MicToggleButton_MouseRightButtonUp">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Background" Value="{DynamicResource NotchFillBrush}"/>
@@ -332,83 +331,53 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Viewbox Grid.Column="0" Width="16" Height="16">
+                        <Viewbox Grid.Column="0" Width="18" Height="18" VerticalAlignment="Center">
                             <Grid Width="24" Height="24">
                                 <Canvas x:Name="MicToggleOnIcon" Width="24" Height="24">
-                                    <Path Data="M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
+                                    <Path Data="M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                     <Path Data="M17 7h-3m3 4h-3m6 0a8 8 0 0 1-8 8m0 0a8 8 0 0 1-8-8m8 8v3m0 0h3m-3 0H9" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                 </Canvas>
                                 <Canvas x:Name="MicToggleOffIcon" Width="24" Height="24" Visibility="Collapsed">
                                     <Path Data="m2 2l20 20M4 11a8 8 0 0 0 8 8m0 0c1.954 0 3.745-.7 5.135-1.865M12 19v3m0 0h3m-3 0H9m11-11c0 1.651-.5 3.186-1.358 4.46m-1.634-8.464c0-2.761-2.239-4.98-5-4.98c-1.869 0-3.47.965-4.328 2.484m9.328 2.496l-3.028.012m3.028-.012v4.008m-10-4.008v4.02a5 5 0 0 0 5 5c1.135 0 2.165-.39 3.004-1.028m1.435-1.728c.358-.69.56-1.413.56-2.244v-.012m-2.824 0h2.825"
-                          Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                          Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                 </Canvas>
                             </Grid>
                         </Viewbox>
 
-                        <TextBlock x:Name="MicToggleLabel" Grid.Column="1" Text="Mutar mic"
-                   FontFamily="{DynamicResource FontBody}"
-                   FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"
-                   VerticalAlignment="Center" Margin="9,0,0,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,8,0">
+                            <TextBlock x:Name="MicToggleLabel" Text="Mutar mic"
+                                       FontFamily="{DynamicResource FontBody}"
+                                       FontSize="13" FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Border x:Name="MicDeviceSelectorButton"
+                                    Margin="0,3,0,0"
+                                    Background="Transparent"
+                                    Cursor="Hand"
+                                    ToolTip="Clique para selecionar microfone"
+                                    MouseLeftButtonDown="MicDeviceSelector_Click"
+                                    MouseRightButtonUp="MicDeviceSelector_RightClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="MicActiveDeviceText"
+                                               Text="Padrão do sistema"
+                                               FontFamily="{DynamicResource FontMono}"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource TextTertiaryBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="220"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text=" ▾"
+                                               FontFamily="{DynamicResource FontBody}"
+                                               FontSize="9.5"
+                                               Foreground="{DynamicResource TextTertiaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
 
                         <TextBlock x:Name="MicToggleState" Grid.Column="2" Text="ON"
-                   FontFamily="{DynamicResource FontMono}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
-                   VerticalAlignment="Center"/>
-                    </Grid>
-                </Border>
-
-                <!-- Quick Picker: seletor rápido de microfone ativo -->
-                <Border x:Name="MicDeviceSelectorButton"
-                        Height="28"
-                        Margin="0,6,0,0"
-                        CornerRadius="{DynamicResource RadiusSm}"
-                        Padding="8,0"
-                        Cursor="Hand"
-                        ToolTip="Clique: selecionar microfone"
-                        MouseLeftButtonDown="MicDeviceSelector_Click"
-                        MouseRightButtonUp="MicDeviceSelector_RightClick">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
-                            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
-                            <Setter Property="BorderThickness" Value="1"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource HoverOverlayBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <Viewbox Grid.Column="0" Width="12" Height="12" Margin="0,0,6,0" Opacity="0.75">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Zm-5 9a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.08A7 7 0 0 1 5 11h2Z"
-                                      Fill="{DynamicResource TextSecondaryBrush}"/>
-                            </Canvas>
-                        </Viewbox>
-
-                        <TextBlock x:Name="MicActiveDeviceText"
-                                   Grid.Column="1"
-                                   Text="Padrão do sistema"
-                                   FontFamily="{DynamicResource FontBody}"
-                                   FontSize="11"
-                                   FontWeight="Medium"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   TextTrimming="CharacterEllipsis"
+                                   FontFamily="{DynamicResource FontMono}" FontSize="11"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
                                    VerticalAlignment="Center"/>
-
-                        <Viewbox Grid.Column="2" Width="10" Height="10" Margin="4,0,0,0" Opacity="0.6">
-                            <Canvas Width="24" Height="24">
-                                <Path Data="M6 9l6 6 6-6" Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="2"
-                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                            </Canvas>
-                        </Viewbox>
                     </Grid>
                 </Border>
 

@@ -89,7 +89,7 @@ namespace Cortinho
 
         private const double CompactHeight = 36;
         private const double ExpandedWidth = 400;
-        private const double ExpandedHeight = 328;
+        private const double ExpandedHeight = 304;
         private bool _isExpanded;
 
         private const double IdentityWidth = 96; // logo 22 + gap 8 + ponto 7 + padding — calibrar visualmente
