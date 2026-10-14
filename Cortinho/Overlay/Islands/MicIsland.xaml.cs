@@ -21,7 +21,19 @@ namespace Cortinho.Overlay.Islands
         public MicIsland()
         {
             InitializeComponent();
+            _micService.MuteChanged += OnMicMuteChanged;
+            Loaded += (_, _) => Refresh();
+            Unloaded += (_, _) =>
+            {
+                _micService.MuteChanged -= OnMicMuteChanged;
+                _micService.Dispose();
+            };
             Refresh();
+        }
+
+        private void OnMicMuteChanged(bool muted)
+        {
+            Dispatcher.InvokeAsync(UpdateMicVisual);
         }
 
         public void Refresh()

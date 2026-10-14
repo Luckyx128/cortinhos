@@ -1,4 +1,4 @@
-﻿using Cortinho.Models;
+using Cortinho.Models;
 using Cortinho.Native;
 using Cortinho.Services;
 using System.Runtime.InteropServices;
@@ -33,6 +33,23 @@ namespace Cortinho
         private HwndSource? _hwndSource;
         private DispatcherTimer? _autoCollapseTimer;
         private const int HOTKEY_ID_MUTE = 9000;
+        private const int HOTKEY_ID_TOGGLE_NOTCH = 9001;
+
+        // Auto-Hide no Desktop: recolhe em uma linha minimalista/discreta no topo (2-3px)
+        private const double AutoHidePeekHeight = 3.0;
+        private bool _isAutoHide;
+        private bool _isManuallyHidden;
+        private bool _isRevealedForOsd;
+        private DispatcherTimer? _autoHideTimer;
+        private DispatcherTimer? _edgeWatcherTimer;
+
+        // Ícones de Mic para OSD
+        private const string MicOnIconPath = "M17 7v4a5 5 0 0 1-10 0V7a5 5 0 0 1 10 0Z M17 7h-3m3 4h-3m6 0a8 8 0 0 1-8 8m0 0a8 8 0 0 1-8-8m8 8v3m0 0h3m-3 0H9";
+        private const string MicOffIconPath = "m2 2l20 20M4 11a8 8 0 0 0 8 8m0 0c1.954 0 3.745-.7 5.135-1.865M12 19v3m0 0h3m-3 0H9m11-11c0 1.651-.5 3.186-1.358 4.46m-1.634-8.464c0-2.761-2.239-4.98-5-4.98c-1.869 0-3.47.965-4.328 2.484m9.328 2.496l-3.028.012m3.028-.012v4.008m-10-4.008v4.02a5 5 0 0 0 5 5c1.135 0 2.165-.39 3.004-1.028m1.435-1.728c.358-.69.56-1.413.56-2.244v-.012m-2.824 0h2.825";
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetCursorPos(out NativeMethods.POINT lpPoint);
 
         // Largura base = só o slot do mic. Cada slot extra (Discord, notificações) visível soma mais espaço —
         // "34" é estimativa (slot 30 + gap 4) que pode precisar de ajuste visual fino.
@@ -80,6 +97,7 @@ namespace Cortinho
             LoadPlacementSettings();
             Top = GetTargetWorkArea().Top;
 
+            _micService.MuteChanged += OnMicMuteChanged;
             UpdateMicIcon();
             _ = InitializeNotificationsAsync();
             InitializeShortcuts();
@@ -90,10 +108,237 @@ namespace Cortinho
 
             Width = GetCompactTargetWidth();
             Left = GetLeftForAnchor(_anchor, Width);
+
+            // Inicia em modo auto-hide inteligente no desktop para não cobrir abas de navegadores e títulos
+            CollapseToAutoHide(immediate: true);
         }
 
-        // ---- Sistema de Status (alert/progress/error) — substitui a fileira de slots compacta.
+        private double GetNormalTop() => GetTargetWorkArea().Top;
+        private double GetAutoHideTop() => GetTargetWorkArea().Top - (CompactHeight - AutoHidePeekHeight);
+
+        private void AnimateTop(double targetTop, double durationMs = 200)
+        {
+            if (!SystemParameters.ClientAreaAnimation)
+            {
+                Top = targetTop;
+                return;
+            }
+
+            BeginAnimation(TopProperty, null);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var animation = new DoubleAnimation(targetTop, new Duration(TimeSpan.FromMilliseconds(durationMs)))
+            {
+                EasingFunction = ease
+            };
+            BeginAnimation(TopProperty, animation);
+        }
+
+        private void AnimateOpacity(double targetOpacity, double durationMs = 180)
+        {
+            if (!SystemParameters.ClientAreaAnimation)
+            {
+                Opacity = targetOpacity;
+                return;
+            }
+
+            BeginAnimation(OpacityProperty, null);
+            var animation = new DoubleAnimation(targetOpacity, new Duration(TimeSpan.FromMilliseconds(durationMs)));
+            BeginAnimation(OpacityProperty, animation);
+        }
+
+        private void AnimateFadeOut()
+        {
+            AnimateTop(GetAutoHideTop() - 20, 200);
+            AnimateOpacity(0, 180);
+        }
+
+        private void RevealFromAutoHide(bool forOsd = false)
+        {
+            if (_isManuallyHidden && !forOsd) return;
+            if (_isExpanded || _isOverlayOpen) return;
+
+            _autoHideTimer?.Stop();
+            _isAutoHide = false;
+
+            if (Opacity < 1)
+            {
+                AnimateOpacity(1, 160);
+            }
+
+            AnimateTop(GetNormalTop(), 200);
+
+            var duration = new Duration(TimeSpan.FromMilliseconds(180));
+            CompactContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1.0, duration));
+            AutoHideIndicator.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.0, duration));
+        }
+
+        private void CollapseToAutoHide(bool immediate = false)
+        {
+            if (_isExpanded || _isOverlayOpen || _isTransitioning || _isManuallyHidden || _statusKind != StatusKind.None) return;
+            if (NotchRoot.IsMouseOver && !immediate) return;
+
+            _isAutoHide = true;
+            double targetTop = GetAutoHideTop();
+
+            if (immediate || !SystemParameters.ClientAreaAnimation)
+            {
+                BeginAnimation(TopProperty, null);
+                Top = targetTop;
+                CompactContent.Opacity = 0;
+                AutoHideIndicator.Opacity = 0.8;
+                return;
+            }
+
+            AnimateTop(targetTop, 220);
+
+            var duration = new Duration(TimeSpan.FromMilliseconds(200));
+            CompactContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.0, duration));
+            AutoHideIndicator.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.8, duration));
+        }
+
+        private void ResetAutoHideTimer(double seconds = 1.2)
+        {
+            if (_isExpanded || _isOverlayOpen || _isManuallyHidden || _statusKind != StatusKind.None) return;
+
+            if (_autoHideTimer == null)
+            {
+                _autoHideTimer = new DispatcherTimer();
+                _autoHideTimer.Tick += (_, _) =>
+                {
+                    _autoHideTimer.Stop();
+                    if (!NotchRoot.IsMouseOver && !_isExpanded && !_isOverlayOpen && _statusKind == StatusKind.None)
+                    {
+                        CollapseToAutoHide();
+                    }
+                };
+            }
+            _autoHideTimer.Stop();
+            _autoHideTimer.Interval = TimeSpan.FromSeconds(seconds);
+            _autoHideTimer.Start();
+        }
+
+        private void InitializeAutoHideWatcher()
+        {
+            _edgeWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _edgeWatcherTimer.Tick += (_, _) => CheckMouseEdgeProximity();
+            _edgeWatcherTimer.Start();
+        }
+
+        private void CheckMouseEdgeProximity()
+        {
+            if (!IsLoaded || _isTransitioning || _isExpanded || _isOverlayOpen) return;
+            if (_isManuallyHidden && !_isRevealedForOsd) return;
+
+            if (!GetCursorPos(out var pt)) return;
+
+            var dpi = VisualTreeHelper.GetDpi(this);
+            double cursorX = pt.X / dpi.DpiScaleX;
+            double cursorY = pt.Y / dpi.DpiScaleY;
+
+            var workArea = GetTargetWorkArea();
+
+            // Detecta aproximação na borda superior da tela onde a Notch está ancorada (0-10px)
+            bool inTopTrigger = cursorY >= workArea.Top && cursorY <= (workArea.Top + 10) &&
+                               cursorX >= (Left - 30) && cursorX <= (Left + Width + 30);
+
+            // Ou quando o cursor está fisicamente sobre o retângulo visível da Notch
+            bool overWindow = cursorX >= Left && cursorX <= (Left + Width) &&
+                              cursorY >= Top && cursorY <= (Top + Height);
+
+            bool isHovering = inTopTrigger || overWindow || NotchRoot.IsMouseOver;
+
+            if (isHovering)
+            {
+                _autoHideTimer?.Stop();
+                if (_isAutoHide)
+                {
+                    RevealFromAutoHide();
+                }
+            }
+            else
+            {
+                if (!_isAutoHide && _statusKind == StatusKind.None && !_isRevealedForOsd && (_autoHideTimer == null || !_autoHideTimer.IsEnabled))
+                {
+                    ResetAutoHideTimer(1.2);
+                }
+            }
+        }
+
+        public void ToggleNotchVisibility()
+        {
+            if (_isManuallyHidden)
+            {
+                _isManuallyHidden = false;
+                AnimateOpacity(1, 160);
+                RevealFromAutoHide();
+                ResetAutoHideTimer(3.5);
+            }
+            else
+            {
+                _isManuallyHidden = true;
+                _autoHideTimer?.Stop();
+
+                if (_isExpanded)
+                {
+                    ToggleExpanded();
+                }
+
+                AnimateFadeOut();
+            }
+        }
+
+        private void OnMicMuteChanged(bool isMuted)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                UpdateMicIcon();
+                PlayMicSound(isMuted);
+                ShowMicAlert(isMuted);
+            });
+        }
+
+        // ---- Sistema de Status e OSD (alert/progress/error/mic)
         // Prioridade: error > alert > progress, um por vez (PHASE-1-NOTCH.md §2).
+
+        public void ShowMicAlert(bool isMuted)
+        {
+            if (_statusKind == StatusKind.Error) return;
+
+            string label = isMuted ? "Microfone mutado" : "Microfone ativo";
+            string icon = isMuted ? MicOffIconPath : MicOnIconPath;
+            var fg = ResourceBrush(isMuted ? "DangerBrush" : "SuccessBrush");
+            var bg = isMuted
+                ? ResourceBrush("DangerSoftBrush")
+                : new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x26, 0x22, 0xC5, 0x5E));
+
+            SetStatus(StatusKind.Alert, label, icon, 1.0, "", 0.0, fg, bg, isStroke: true);
+
+            _isRevealedForOsd = true;
+            RevealFromAutoHide(forOsd: true);
+
+            double targetWidth = 176;
+            AnimateWidth(targetWidth);
+
+            _statusAutoRecedeTimer?.Stop();
+            _statusAutoRecedeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.4) };
+            _statusAutoRecedeTimer.Tick += (_, _) =>
+            {
+                _statusAutoRecedeTimer?.Stop();
+                ClearStatus();
+                _isRevealedForOsd = false;
+                SyncCompactSize();
+
+                if (_isManuallyHidden)
+                {
+                    AnimateFadeOut();
+                }
+                else if (!NotchRoot.IsMouseOver)
+                {
+                    ResetAutoHideTimer(0.8);
+                }
+            };
+            _statusAutoRecedeTimer.Start();
+        }
 
         public void ShowAlert(string label)
         {
@@ -101,9 +346,30 @@ namespace Cortinho
 
             SetStatus(StatusKind.Alert, label, AlertIconL1, 0.5, AlertIconL2, 1);
 
+            _isRevealedForOsd = true;
+            RevealFromAutoHide(forOsd: true);
+
+            double targetWidth = Math.Max(GetCompactTargetWidth(), 160);
+            AnimateWidth(targetWidth);
+
             _statusAutoRecedeTimer?.Stop();
             _statusAutoRecedeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.6) };
-            _statusAutoRecedeTimer.Tick += (_, _) => ClearStatus();
+            _statusAutoRecedeTimer.Tick += (_, _) =>
+            {
+                _statusAutoRecedeTimer?.Stop();
+                ClearStatus();
+                _isRevealedForOsd = false;
+                SyncCompactSize();
+
+                if (_isManuallyHidden)
+                {
+                    AnimateFadeOut();
+                }
+                else if (!NotchRoot.IsMouseOver)
+                {
+                    ResetAutoHideTimer(0.8);
+                }
+            };
             _statusAutoRecedeTimer.Start();
         }
 
@@ -111,6 +377,9 @@ namespace Cortinho
         {
             _statusAutoRecedeTimer?.Stop(); // error nunca auto-esconde — só no clique (StatusLabel_Click)
             SetStatus(StatusKind.Error, label, ErrorIconL1, 0.5, ErrorIconL2, 1);
+            _isRevealedForOsd = true;
+            RevealFromAutoHide(forOsd: true);
+            AnimateWidth(Math.Max(GetCompactTargetWidth(), 160));
         }
 
         public void ShowProgress(double percent)
@@ -138,7 +407,8 @@ namespace Cortinho
             StatusProgressBar.Visibility = Visibility.Collapsed;
         }
 
-        private void SetStatus(StatusKind kind, string label, string iconL1, double iconL1Opacity, string iconL2, double iconL2Opacity)
+        private void SetStatus(StatusKind kind, string label, string iconL1, double iconL1Opacity, string iconL2, double iconL2Opacity,
+            System.Windows.Media.Brush? customFg = null, System.Windows.Media.Brush? customBg = null, bool isStroke = false)
         {
             _statusKind = kind;
             SlotsRow.Visibility = Visibility.Collapsed;
@@ -146,19 +416,35 @@ namespace Cortinho
             StatusLabel.Visibility = Visibility.Visible;
             StatusLabelText.Text = label;
 
-            StatusIconPath.Data = Geometry.Parse(iconL1);
+            StatusIconPath.Data = string.IsNullOrEmpty(iconL1) ? null : Geometry.Parse(iconL1);
             StatusIconPath.Opacity = iconL1Opacity;
-            StatusIconPathSecondary.Data = Geometry.Parse(iconL2);
+            StatusIconPathSecondary.Data = string.IsNullOrEmpty(iconL2) ? null : Geometry.Parse(iconL2);
             StatusIconPathSecondary.Opacity = iconL2Opacity;
 
             bool isError = kind == StatusKind.Error;
-            StatusLabel.Background = ResourceBrush(isError ? "DangerSoftBrush" : "AccentSoftBrush");
+            StatusLabel.Background = customBg ?? ResourceBrush(isError ? "DangerSoftBrush" : "AccentSoftBrush");
             StatusLabel.BorderBrush = isError ? ResourceBrush("DangerBrush") : null;
             StatusLabel.BorderThickness = new Thickness(isError ? 1 : 0);
 
-            var fg = ResourceBrush(isError ? "DangerBrush" : "TextPrimaryBrush");
-            StatusIconPath.Fill = fg;
-            StatusIconPathSecondary.Fill = fg;
+            var fg = customFg ?? ResourceBrush(isError ? "DangerBrush" : "TextPrimaryBrush");
+            if (isStroke)
+            {
+                StatusIconPath.Fill = null;
+                StatusIconPath.Stroke = fg;
+                StatusIconPath.StrokeThickness = 1.5;
+                StatusIconPath.StrokeStartLineCap = PenLineCap.Round;
+                StatusIconPath.StrokeEndLineCap = PenLineCap.Round;
+                StatusIconPathSecondary.Fill = null;
+                StatusIconPathSecondary.Stroke = fg;
+                StatusIconPathSecondary.StrokeThickness = 1.5;
+            }
+            else
+            {
+                StatusIconPath.Stroke = null;
+                StatusIconPath.Fill = fg;
+                StatusIconPathSecondary.Stroke = null;
+                StatusIconPathSecondary.Fill = fg;
+            }
             StatusLabelText.Foreground = fg;
         }
 
@@ -431,12 +717,19 @@ namespace Cortinho
         }
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID_MUTE)
+            if (msg == NativeMethods.WM_HOTKEY)
             {
-                _micService.ToggleMute();
-                UpdateMicIcon();
-                PlayMicSound(_micService.IsMuted);
-                handled = true;
+                int id = wParam.ToInt32();
+                if (id == HOTKEY_ID_MUTE)
+                {
+                    _micService.ToggleMute();
+                    handled = true;
+                }
+                else if (id == HOTKEY_ID_TOGGLE_NOTCH)
+                {
+                    ToggleNotchVisibility();
+                    handled = true;
+                }
             }
             return IntPtr.Zero;
         }
@@ -445,10 +738,15 @@ namespace Cortinho
         {
             var hwnd = new WindowInteropHelper(this).Handle;
             NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_MUTE);
+            NativeMethods.UnregisterHotKey(hwnd, HOTKEY_ID_TOGGLE_NOTCH);
             _hwndSource?.RemoveHook(WndProc);
             _inputWatcher?.Dispose();
             _discordWatcher?.Dispose();
             _discordPresenceService.Dispose();
+            _micService.MuteChanged -= OnMicMuteChanged;
+            _micService.Dispose();
+            _edgeWatcherTimer?.Stop();
+            _autoHideTimer?.Stop();
             base.OnClosed(e);
         }
 
@@ -485,20 +783,26 @@ namespace Cortinho
             if (open)
             {
                 _autoCollapseTimer?.Stop();
+                _autoHideTimer?.Stop();
+                _isAutoHide = false;
                 _isExpanded = false;
                 _isPeeking = false;
                 CompactContent.Visibility = Visibility.Collapsed;
                 ExpandedContent.Visibility = Visibility.Collapsed;
                 IdentityContent.Visibility = Visibility.Visible;
+                AutoHideIndicator.Opacity = 0;
                 UpdateIdentityStatusDot();
+                Top = GetNormalTop();
                 AnimateSize(IdentityWidth, IdentityHeight, GetLeftForAnchor(_anchor, IdentityWidth));
             }
             else
             {
                 IdentityContent.Visibility = Visibility.Collapsed;
                 CompactContent.Visibility = Visibility.Visible;
+                CompactContent.Opacity = 1;
                 double width = GetCompactTargetWidth();
                 AnimateSize(width, CompactHeight, GetLeftForAnchor(_anchor, width));
+                ResetAutoHideTimer(2.0);
             }
         }
 
@@ -526,10 +830,13 @@ namespace Cortinho
             _hwndSource?.AddHook(WndProc);
 
             NativeMethods.RegisterHotKey(hwnd, HOTKEY_ID_MUTE, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, NativeMethods.VK_M);
+            NativeMethods.RegisterHotKey(hwnd, HOTKEY_ID_TOGGLE_NOTCH, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT, 0x48); // Ctrl + Alt + H
 
             _inputWatcher = new GlobalInputWatcher();
             _inputWatcher.MouseDown += OnGlobalMouseDown;
             _inputWatcher.EscapePressed += OnGlobalEscapePressed;
+
+            InitializeAutoHideWatcher();
         }
 
         private void OnGlobalMouseDown(System.Windows.Point screenPoint)
@@ -550,6 +857,13 @@ namespace Cortinho
         {
             if (_isOverlayOpen) { IdentityCaption.Visibility = Visibility.Visible; AnimateWidth(IdentityPeekWidth); return; }
             if (_isExpanded || _isTransitioning) return;
+
+            _autoHideTimer?.Stop();
+            if (_isAutoHide)
+            {
+                RevealFromAutoHide();
+            }
+
             _isPeeking = true;
             MicCaption.Visibility = Visibility.Visible;
             if (DiscordSlot.Visibility == Visibility.Visible) DiscordCaption.Visibility = Visibility.Visible;
@@ -566,6 +880,11 @@ namespace Cortinho
             DiscordCaption.Visibility = Visibility.Collapsed;
             NotificationCaption.Visibility = Visibility.Collapsed;
             AnimateWidth(GetCompactTargetWidth());
+
+            if (!_isAutoHide && _statusKind == StatusKind.None)
+            {
+                ResetAutoHideTimer(1.2);
+            }
         }
 
         private void AnimateWidth(double targetWidth)
@@ -652,14 +971,21 @@ namespace Cortinho
             ExpandedContent.Visibility = _isExpanded ? Visibility.Visible : Visibility.Collapsed;
 
             if (_isExpanded)
+            {
+                _autoHideTimer?.Stop();
+                _isAutoHide = false;
+                AutoHideIndicator.Opacity = 0;
+                Top = GetNormalTop();
                 AnimateHeightOnly(targetHeight); // largura já é a do peek/expandido — só a altura cresce
-            else
-                AnimateSize(targetWidth, targetHeight, targetLeft); // recolher volta largura+altura junto
-
-            if (_isExpanded)
                 ResetAutoCollapseTimer();
+            }
             else
+            {
+                CompactContent.Opacity = 1;
+                AnimateSize(targetWidth, targetHeight, targetLeft); // recolher volta largura+altura junto
                 _autoCollapseTimer?.Stop();
+                ResetAutoHideTimer(1.5);
+            }
 
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
             timer.Tick += (_, _) =>
@@ -708,8 +1034,6 @@ namespace Cortinho
         private void MicToggleButton_Click(object sender, MouseButtonEventArgs e)
         {
             _micService.ToggleMute();
-            UpdateMicIcon();
-            PlayMicSound(_micService.IsMuted);
         }
 
 
@@ -719,9 +1043,9 @@ namespace Cortinho
             double compactWidth = GetCompactTargetWidth();
             var candidates = new (NotchAnchor Anchor, double Left)[]
             {
-        (NotchAnchor.Left, workArea.Left + 12),
-        (NotchAnchor.Center, workArea.Left + (workArea.Width - compactWidth) / 2),
-        (NotchAnchor.Right, workArea.Right - compactWidth - 12),
+                (NotchAnchor.Left, workArea.Left + 12),
+                (NotchAnchor.Center, workArea.Left + (workArea.Width - compactWidth) / 2),
+                (NotchAnchor.Right, workArea.Right - compactWidth - 12),
             };
 
             var closest = candidates.OrderBy(c => Math.Abs(c.Left - Left)).First();
@@ -733,6 +1057,8 @@ namespace Cortinho
 
             BeginAnimation(LeftProperty, new DoubleAnimation(closest.Left, duration) { EasingFunction = ease });
             BeginAnimation(TopProperty, new DoubleAnimation(workArea.Top, duration) { EasingFunction = ease });
+            _isAutoHide = false;
+            ResetAutoHideTimer(2.0);
         }
 
         private double GetLeftForAnchor(NotchAnchor anchor, double width)
@@ -791,7 +1117,7 @@ namespace Cortinho
         {
             LoadPlacementSettings();
             if (_isExpanded || _isTransitioning) return;
-            Top = GetTargetWorkArea().Top;
+            Top = _isAutoHide ? GetAutoHideTop() : GetNormalTop();
             SyncCompactSize();
         }
 
