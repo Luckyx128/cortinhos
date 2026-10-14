@@ -439,10 +439,10 @@
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
 
-                                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="4"
-                                                    Background="{DynamicResource HoverOverlayBrush}" Margin="0,1,8,0" VerticalAlignment="Top">
+                                            <Border Grid.Column="0" Width="30" Height="30" CornerRadius="4"
+                                                    Background="{DynamicResource HoverOverlayBrush}" Margin="0,0,10,0" VerticalAlignment="Center">
                                                 <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Image Source="{Binding Icon}" Width="18" Height="18"
+                                                    <Image Source="{Binding Icon}" Width="22" Height="22"
                                                            Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
                                                         <Image.Style>
                                                             <Style TargetType="Image">
@@ -455,7 +455,7 @@
                                                             </Style>
                                                         </Image.Style>
                                                     </Image>
-                                                    <Viewbox Width="16" Height="16">
+                                                    <Viewbox Width="18" Height="18">
                                                         <Viewbox.Style>
                                                             <Style TargetType="Viewbox">
                                                                 <Setter Property="Visibility" Value="Collapsed"/>
