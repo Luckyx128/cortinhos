@@ -426,74 +426,76 @@
                                    HorizontalAlignment="Right" Cursor="Hand" MouseLeftButtonDown="ClearNotifications_Click"/>
                     </Grid>
 
-                    <ItemsControl x:Name="NotificationsItems">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="0,0,0,4" Padding="10,8" CornerRadius="{DynamicResource RadiusSm}"
-                                        Background="{DynamicResource NotchFillBrush}"
-                                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
+                    <ScrollViewer MaxHeight="136" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="NotificationsItems">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,4" Padding="10,8" CornerRadius="{DynamicResource RadiusSm}"
+                                            Background="{DynamicResource NotchFillBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
 
-                                        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="3"
-                                                Background="{DynamicResource HoverOverlayBrush}" Margin="0,1,8,0" VerticalAlignment="Top">
-                                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Image Source="{Binding Icon}" Width="14" Height="14"
-                                                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
-                                                    <Image.Style>
-                                                        <Style TargetType="Image">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Image.Style>
-                                                </Image>
-                                                <Viewbox Width="12" Height="12">
-                                                    <Viewbox.Style>
-                                                        <Style TargetType="Viewbox">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Viewbox.Style>
-                                                    <Path Data="{Binding VectorIcon}"
-                                                          Stroke="{Binding VectorBrush}" StrokeThickness="1.5"
-                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
+                                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="4"
+                                                    Background="{DynamicResource HoverOverlayBrush}" Margin="0,1,8,0" VerticalAlignment="Top">
+                                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Image Source="{Binding Icon}" Width="18" Height="18"
+                                                           Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Viewbox.Style>
+                                                            <Style TargetType="Viewbox">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Viewbox.Style>
+                                                        <Path Data="{Binding VectorIcon}"
+                                                              Stroke="{Binding VectorBrush}" StrokeThickness="1.5"
+                                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                    </Viewbox>
+                                                </Grid>
+                                            </Border>
 
-                                        <StackPanel Grid.Column="1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Title}"
-                                                           FontFamily="{DynamicResource FontBody}"
-                                                           FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding TimeLabel}"
-                                                           FontFamily="{DynamicResource FontMono}" FontSize="9.5" Foreground="{DynamicResource TextTertiaryBrush}"
-                                                           Margin="6,0,0,0"/>
-                                            </Grid>
-                                            <TextBlock Text="{Binding Body}" FontFamily="{DynamicResource FontBody}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Title}"
+                                                               FontFamily="{DynamicResource FontBody}"
+                                                               FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding TimeLabel}"
+                                                               FontFamily="{DynamicResource FontMono}" FontSize="9.5" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                               Margin="6,0,0,0"/>
+                                                </Grid>
+                                                <TextBlock Text="{Binding Body}" FontFamily="{DynamicResource FontBody}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
 
                     <TextBlock x:Name="NoNotificationsLabel" Text="Sem notificações" FontFamily="{DynamicResource FontBody}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Visibility="Collapsed"/>
                 </StackPanel>

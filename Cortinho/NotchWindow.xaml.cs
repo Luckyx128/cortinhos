@@ -798,7 +798,7 @@ namespace Cortinho
             combined.AddRange(_customNotificationHistory);
             combined.AddRange(_lastSystemNotificationItems);
 
-            var displayItems = combined.Take(5).ToList();
+            var displayItems = combined.Take(3).ToList();
             NotificationsItems.ItemsSource = displayItems;
             NoNotificationsLabel.Visibility = displayItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -1147,7 +1147,7 @@ namespace Cortinho
             UpdateNotificationSlot(); // badge só existe com o painel fechado — reavalia antes de medir a largura alvo
 
             double targetWidth = _isExpanded ? ExpandedWidth : GetCompactTargetWidth();
-            double targetHeight = _isExpanded ? ExpandedHeight : CompactHeight;
+            double targetHeight = _isExpanded ? GetExpandedTargetHeight() : CompactHeight;
             double targetLeft = GetLeftForAnchor(_anchor, targetWidth);
 
             CompactContent.Visibility = _isExpanded ? Visibility.Collapsed : Visibility.Visible;
@@ -1177,6 +1177,26 @@ namespace Cortinho
                 timer.Stop();
             };
             timer.Start();
+        }
+
+        private double GetExpandedTargetHeight()
+        {
+            // Altura base com margens internas e TopStatusRow
+            double height = 260;
+
+            // Se o DiscordPanel estiver visível, precisa de mais espaço vertical para acomodá-lo
+            if (DiscordPanel.Visibility == Visibility.Visible)
+            {
+                height += 56;
+            }
+
+            // Se existirem atalhos rápidos ou notificações ocupando altura vertical
+            if (ShortcutsPanel.Visibility == Visibility.Visible)
+            {
+                height += 24;
+            }
+
+            return Math.Max(ExpandedHeight, height);
         }
 
         private void AnimateSize(double targetWidth, double targetHeight, double targetLeft)
