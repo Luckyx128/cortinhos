@@ -19,11 +19,17 @@ using System.Windows.Threading;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices.WindowsRuntime;
+using ContextMenu = System.Windows.Controls.ContextMenu;
+using MenuItem = System.Windows.Controls.MenuItem;
+using Brush = System.Windows.Media.Brush;
+using FontFamily = System.Windows.Media.FontFamily;
 
 namespace Cortinho
 {
     public partial class NotchWindow : Window
     {
+        public static NotchWindow? Current => System.Windows.Application.Current?.Windows.OfType<NotchWindow>().FirstOrDefault();
+
         private readonly MicService _micService = new();
         private readonly NotificationService _notificationService = new();
         private readonly DiscordPresenceService _discordPresenceService = new();
@@ -32,6 +38,7 @@ namespace Cortinho
         private GlobalInputWatcher? _inputWatcher;
         private HwndSource? _hwndSource;
         private DispatcherTimer? _autoCollapseTimer;
+        private ContextMenu? _micPickerMenu;
         private const int HOTKEY_ID_MUTE = 9000;
         private const int HOTKEY_ID_TOGGLE_NOTCH = 9001;
 
@@ -82,7 +89,7 @@ namespace Cortinho
 
         private const double CompactHeight = 36;
         private const double ExpandedWidth = 400;
-        private const double ExpandedHeight = 294; // 357 antes do módulo CPU/GPU sair do painel (~63 DIPs)
+        private const double ExpandedHeight = 328;
         private bool _isExpanded;
 
         private const double IdentityWidth = 96; // logo 22 + gap 8 + ponto 7 + padding — calibrar visualmente
@@ -98,7 +105,9 @@ namespace Cortinho
             Top = GetTargetWorkArea().Top;
 
             _micService.MuteChanged += OnMicMuteChanged;
+            MicService.DeviceChanged += OnGlobalMicDeviceChanged;
             UpdateMicIcon();
+            UpdateActiveMicDeviceText();
             _ = InitializeNotificationsAsync();
             InitializeShortcuts();
             InitializeDiscord();
@@ -293,7 +302,10 @@ namespace Cortinho
             {
                 UpdateMicIcon();
                 PlayMicSound(isMuted);
-                ShowMicAlert(isMuted);
+                if (!_isExpanded)
+                {
+                    ShowMicAlert(isMuted);
+                }
             });
         }
 
@@ -302,7 +314,7 @@ namespace Cortinho
 
         public void ShowMicAlert(bool isMuted)
         {
-            if (_statusKind == StatusKind.Error) return;
+            if (_statusKind == StatusKind.Error || _isExpanded) return;
 
             string label = isMuted ? "Microfone mutado" : "Microfone ativo";
             string icon = isMuted ? MicOffIconPath : MicOnIconPath;
@@ -342,14 +354,20 @@ namespace Cortinho
 
         public void ShowAlert(string label)
         {
-            if (_statusKind == StatusKind.Error) return; // error tem prioridade, ignora
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ShowAlert(label));
+                return;
+            }
+
+            if (_statusKind == StatusKind.Error || _isExpanded) return; // error tem prioridade, ignora
 
             SetStatus(StatusKind.Alert, label, AlertIconL1, 0.5, AlertIconL2, 1);
 
             _isRevealedForOsd = true;
             RevealFromAutoHide(forOsd: true);
 
-            double targetWidth = Math.Max(GetCompactTargetWidth(), 160);
+            double targetWidth = Math.Max(GetCompactTargetWidth(), Math.Min(320, Math.Max(160, label.Length * 7.5 + 46)));
             AnimateWidth(targetWidth);
 
             _statusAutoRecedeTimer?.Stop();
@@ -744,6 +762,7 @@ namespace Cortinho
             _discordWatcher?.Dispose();
             _discordPresenceService.Dispose();
             _micService.MuteChanged -= OnMicMuteChanged;
+            MicService.DeviceChanged -= OnGlobalMicDeviceChanged;
             _micService.Dispose();
             _edgeWatcherTimer?.Stop();
             _autoHideTimer?.Stop();
@@ -841,6 +860,7 @@ namespace Cortinho
 
         private void OnGlobalMouseDown(System.Windows.Point screenPoint)
         {
+            if (_micPickerMenu?.IsOpen == true) return;
             if (!_isExpanded || _isTransitioning) return;
             var windowBounds = new Rect(Left, Top, Width, Height);
             if (!windowBounds.Contains(screenPoint))
@@ -1034,6 +1054,190 @@ namespace Cortinho
         private void MicToggleButton_Click(object sender, MouseButtonEventArgs e)
         {
             _micService.ToggleMute();
+        }
+
+        private void OnGlobalMicDeviceChanged(string deviceId)
+        {
+            Dispatcher.Invoke(UpdateActiveMicDeviceText);
+        }
+
+        private void CompactMicSlot_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenMicPicker(CompactMicSlot);
+        }
+
+        private void MicToggleButton_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenMicPicker(MicToggleButton);
+        }
+
+        private void MicDeviceSelector_Click(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenMicPicker(MicDeviceSelectorButton);
+        }
+
+        private void MicDeviceSelector_RightClick(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            OpenMicPicker(MicDeviceSelectorButton);
+        }
+
+        public void OpenMicPicker(FrameworkElement target)
+        {
+            _autoCollapseTimer?.Stop();
+            _autoHideTimer?.Stop();
+
+            var menu = CreateMicPickerMenu((selectedId, selectedName) =>
+            {
+                SelectMicrophone(selectedId, selectedName);
+            });
+
+            menu.PlacementTarget = target;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.Closed += (_, _) =>
+            {
+                _micPickerMenu = null;
+                if (_isExpanded)
+                    ResetAutoCollapseTimer();
+                else if (!NotchRoot.IsMouseOver)
+                    ResetAutoHideTimer(1.2);
+            };
+
+            _micPickerMenu = menu;
+            menu.IsOpen = true;
+        }
+
+        public void SelectMicrophone(string selectedId, string selectedName)
+        {
+            var s = AppSettingsStore.Load();
+            s.MicDeviceId = selectedId;
+            AppSettingsStore.Save(s);
+            MicService.NotifyGlobalDeviceChanged(selectedId);
+            ShowAlert($"Mic: {selectedName}");
+            UpdateActiveMicDeviceText();
+        }
+
+        public void UpdateActiveMicDeviceText()
+        {
+            var settings = AppSettingsStore.Load();
+            string currentId = settings.MicDeviceId ?? "";
+            string displayName = "Padrão do sistema";
+
+            if (!string.IsNullOrEmpty(currentId))
+            {
+                var devices = MicService.GetCaptureDevices();
+                var match = devices.FirstOrDefault(d => d.Id == currentId);
+                if (!string.IsNullOrEmpty(match.Name))
+                {
+                    displayName = match.Name;
+                }
+            }
+
+            MicActiveDeviceText.Text = displayName;
+            MicActiveDeviceText.ToolTip = string.IsNullOrEmpty(currentId) && !string.IsNullOrEmpty(_micService.DeviceName)
+                ? $"Padrão do sistema ({_micService.DeviceName})"
+                : displayName;
+        }
+
+        public static ContextMenu CreateMicPickerMenu(Action<string, string> onDeviceSelected)
+        {
+            var menu = new ContextMenu
+            {
+                Style = (Style)System.Windows.Application.Current.FindResource("FormContextMenuStyle")
+            };
+
+            menu.Items.Add(new TextBlock
+            {
+                Text = "SELECIONAR MICROFONE",
+                FontFamily = (FontFamily)System.Windows.Application.Current.FindResource("FontMono"),
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)System.Windows.Application.Current.FindResource("TextTertiaryBrush"),
+                Margin = new Thickness(10, 4, 10, 6)
+            });
+
+            var settings = AppSettingsStore.Load();
+            string configuredId = settings.MicDeviceId ?? "";
+
+            var devices = MicService.GetCaptureDevices().ToList();
+            bool isDefaultActive = string.IsNullOrEmpty(configuredId) || devices.All(d => d.Id != configuredId);
+
+            var menuItemStyle = (Style)System.Windows.Application.Current.FindResource("FormMenuItemStyle");
+
+            // Item: Padrão do sistema
+            var defaultItem = new MenuItem
+            {
+                Header = new TextBlock
+                {
+                    Text = "Padrão do sistema",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxWidth = 260
+                },
+                Style = menuItemStyle,
+                Icon = isDefaultActive ? CreateCheckmarkIcon() : CreateEmptyIcon(),
+                ToolTip = "Usar microfone padrão configurado no Windows"
+            };
+            defaultItem.Click += (_, _) => onDeviceSelected("", "Padrão do sistema");
+            menu.Items.Add(defaultItem);
+
+            if (devices.Count > 0)
+            {
+                menu.Items.Add(new Separator
+                {
+                    Background = (Brush)System.Windows.Application.Current.FindResource("BorderSubtleBrush"),
+                    Height = 1,
+                    Margin = new Thickness(6, 4, 6, 4)
+                });
+
+                foreach (var device in devices)
+                {
+                    bool isSelected = !isDefaultActive && device.Id == configuredId;
+                    var item = new MenuItem
+                    {
+                        Header = new TextBlock
+                        {
+                            Text = device.Name,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            TextTrimming = TextTrimming.CharacterEllipsis,
+                            MaxWidth = 260
+                        },
+                        Style = menuItemStyle,
+                        Icon = isSelected ? CreateCheckmarkIcon() : CreateEmptyIcon(),
+                        ToolTip = device.Name
+                    };
+                    string devId = device.Id;
+                    string devName = device.Name;
+                    item.Click += (_, _) => onDeviceSelected(devId, devName);
+                    menu.Items.Add(item);
+                }
+            }
+
+            return menu;
+        }
+
+        private static FrameworkElement CreateCheckmarkIcon()
+        {
+            var path = new Path
+            {
+                Data = Geometry.Parse("M3 7.5 L6.5 11 L12 4"),
+                Stroke = (Brush)System.Windows.Application.Current.FindResource("AccentBrush"),
+                StrokeThickness = 2,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round
+            };
+            var canvas = new Canvas { Width = 15, Height = 15 };
+            canvas.Children.Add(path);
+            return canvas;
+        }
+
+        private static FrameworkElement CreateEmptyIcon()
+        {
+            return new Canvas { Width = 15, Height = 15 };
         }
 
 

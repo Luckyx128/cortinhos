@@ -48,6 +48,23 @@ namespace Cortinho.Overlay.Islands
             UpdateMicVisual();
         }
 
+        private void MicButton_RightClick(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            var menu = NotchWindow.CreateMicPickerMenu((selectedId, selectedName) =>
+            {
+                var s = AppSettingsStore.Load();
+                s.MicDeviceId = selectedId;
+                AppSettingsStore.Save(s);
+                MicService.NotifyGlobalDeviceChanged(selectedId);
+                NotchWindow.Current?.ShowAlert($"Mic: {selectedName}");
+            });
+
+            menu.PlacementTarget = MicButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
         private void AudioButton_Click(object sender, MouseButtonEventArgs e)
         {
             _audioService.ToggleMute();

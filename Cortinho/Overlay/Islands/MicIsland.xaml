@@ -18,7 +18,9 @@
 
             <!-- Botão Mic -->
             <Border x:Name="MicButton" Grid.Column="0" Height="34" CornerRadius="4" Padding="11,0" Cursor="Hand"
-                    MouseLeftButtonDown="MicButton_Click" Margin="0,0,7,0">
+                    ToolTip="Clique: mutar/desmutar&#x0a;Clique direito: selecionar microfone"
+                    MouseLeftButtonDown="MicButton_Click"
+                    MouseRightButtonUp="MicButton_RightClick" Margin="0,0,7,0">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
